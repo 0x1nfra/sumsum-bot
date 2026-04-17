@@ -68,3 +68,25 @@ def test_market_scanner_dispatches_valid_weather_records_to_consumer(
         "wx-heat-miami-005",
         "wx-wind-chi-006",
     ]
+
+
+def test_market_scanner_returns_grouped_normalized_candidates(
+    weather_market_payloads: dict,
+) -> None:
+    scanner = MarketScanner()
+
+    result = scanner.dispatch_weather_scan(weather_market_payloads)
+
+    assert result.source == "polymarket"
+    assert [candidate.market_id for candidate in result.approved] == [
+        "wx-temp-phx-001",
+        "wx-rain-sea-002",
+        "wx-temp-dal-003",
+        "wx-rain-nyc-004",
+    ]
+    assert [candidate.market_id for candidate in result.review] == ["wx-heat-miami-005"]
+    assert [candidate.market_id for candidate in result.rejected] == ["wx-wind-chi-006"]
+    assert {candidate.market_id for candidate in result.non_approved} == {
+        "wx-heat-miami-005",
+        "wx-wind-chi-006",
+    }
