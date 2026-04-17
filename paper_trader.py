@@ -1,17 +1,17 @@
-"""Thin paper-trading entrypoint for the Phase 1 scaffold."""
+"""Paper-runtime wrapper around the shared market discovery CLI."""
 
 from __future__ import annotations
 
-from config import PROJECT_NAME
-from core import describe_runtime
+from typing import Sequence
+
+from main import main as discovery_main
 
 
-def main() -> int:
-    """Report the current scaffold status for the paper runtime."""
-    print(f"{PROJECT_NAME}: {describe_runtime('paper')}")
-    return 0
+def main(argv: Sequence[str] | None = None) -> int:
+    """Reuse the shared scanner CLI for paper-runtime invocation."""
+
+    return discovery_main(argv)
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
