@@ -44,5 +44,6 @@ class WeatherMarketCandidate:
             no_price=self.no_price,
             liquidity_usd=self.liquidity_usd,
             resolution_hours=self.resolution_hours,
+            normalization_status=self.status,
             rejection_reasons=self.reason_codes,
         )

@@ -23,6 +23,11 @@ def _candidate_from_market(market: dict, status: CandidateStatus, reasons: Itera
         no_price=market.get("no_price"),
         liquidity_usd=market.get("liquidity_usd"),
         resolution_hours=market.get("expected_resolution_hours"),
+        normalization_status=(
+            CandidateStatus(market["expected_bucket"])
+            if market.get("expected_bucket") in {status.value for status in CandidateStatus}
+            else status
+        ),
         rejection_reasons=tuple(reason for reason in reasons if reason),
     )
 
@@ -86,6 +91,26 @@ class CandidateStorage:
                     reason TEXT NOT NULL,
                     reasons_csv TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS scan_candidates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scan_run_id INTEGER NOT NULL,
+                    market_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    location TEXT NOT NULL,
+                    metric TEXT,
+                    region TEXT,
+                    threshold_value REAL,
+                    unit TEXT,
+                    no_price REAL,
+                    liquidity_usd REAL,
+                    resolution_hours INTEGER,
+                    normalization_status TEXT NOT NULL,
+                    filter_status TEXT NOT NULL,
+                    primary_reason TEXT,
+                    reasons_csv TEXT NOT NULL,
+                    FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
+                );
                 """
             )
 
@@ -110,52 +135,28 @@ class CandidateStorage:
 
     def save_candidate(self, candidate: CandidateRecord) -> None:
         self.bootstrap()
-        reasons_csv = ",".join(candidate.rejection_reasons)
-        primary_reason = candidate.rejection_reasons[0] if candidate.rejection_reasons else ""
+        with self.connect() as connection:
+            self._upsert_bucket_candidate(connection, candidate)
+
+    def persist_scan_result(self, source: str, candidates: Iterable[CandidateRecord]) -> int:
+        self.bootstrap()
+        candidate_list = list(candidates)
+        metadata = ScanResultMetadata(
+            source=source,
+            candidate_count=len(candidate_list),
+            approved_count=sum(candidate.status is CandidateStatus.APPROVED for candidate in candidate_list),
+            review_count=sum(candidate.status is CandidateStatus.REVIEW for candidate in candidate_list),
+            rejected_count=sum(candidate.status is CandidateStatus.REJECTED for candidate in candidate_list),
+        )
+        scan_run_id = self.save_scan_run(metadata)
 
         with self.connect() as connection:
-            if candidate.status is CandidateStatus.APPROVED:
-                connection.execute(
-                    """
-                    INSERT OR REPLACE INTO accepted_candidates (
-                        market_id, title, metric, location, region, threshold_value, unit,
-                        no_price, liquidity_usd, resolution_hours
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        candidate.market_id,
-                        candidate.title,
-                        candidate.metric,
-                        candidate.location,
-                        candidate.region,
-                        candidate.threshold,
-                        candidate.unit,
-                        candidate.no_price,
-                        candidate.liquidity_usd,
-                        candidate.resolution_hours,
-                    ),
-                )
-                return
+            for candidate in candidate_list:
+                self._insert_scan_candidate(connection, scan_run_id, candidate)
+                self._upsert_bucket_candidate(connection, candidate)
+            connection.commit()
 
-            table_name = (
-                "review_candidates"
-                if candidate.status is CandidateStatus.REVIEW
-                else "rejected_candidates"
-            )
-            connection.execute(
-                f"""
-                INSERT OR REPLACE INTO {table_name} (
-                    market_id, title, location, reason, reasons_csv
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    candidate.market_id,
-                    candidate.title,
-                    candidate.location,
-                    primary_reason,
-                    reasons_csv,
-                ),
-            )
+        return scan_run_id
 
     def list_candidates(self, status: CandidateStatus) -> list[CandidateRecord]:
         self.bootstrap()
@@ -195,6 +196,7 @@ class CandidateStorage:
                         no_price=row["no_price"],
                         liquidity_usd=row["liquidity_usd"],
                         resolution_hours=row["resolution_hours"],
+                        normalization_status=status,
                     )
                 )
             else:
@@ -205,10 +207,99 @@ class CandidateStorage:
                         title=row["title"],
                         status=status,
                         location=row["location"],
+                        normalization_status=status,
                         rejection_reasons=reasons,
                     )
                 )
         return candidates
+
+    def _insert_scan_candidate(
+        self,
+        connection: sqlite3.Connection,
+        scan_run_id: int,
+        candidate: CandidateRecord,
+    ) -> None:
+        reasons_csv = ",".join(candidate.rejection_reasons)
+        primary_reason = candidate.rejection_reasons[0] if candidate.rejection_reasons else None
+        normalization_status = (candidate.normalization_status or candidate.status).value
+
+        connection.execute(
+            """
+            INSERT INTO scan_candidates (
+                scan_run_id, market_id, title, location, metric, region, threshold_value, unit,
+                no_price, liquidity_usd, resolution_hours, normalization_status, filter_status,
+                primary_reason, reasons_csv
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                scan_run_id,
+                candidate.market_id,
+                candidate.title,
+                candidate.location,
+                candidate.metric,
+                candidate.region,
+                candidate.threshold,
+                candidate.unit,
+                candidate.no_price,
+                candidate.liquidity_usd,
+                candidate.resolution_hours,
+                normalization_status,
+                candidate.status.value,
+                primary_reason,
+                reasons_csv,
+            ),
+        )
+
+    def _upsert_bucket_candidate(
+        self,
+        connection: sqlite3.Connection,
+        candidate: CandidateRecord,
+    ) -> None:
+        reasons_csv = ",".join(candidate.rejection_reasons)
+        primary_reason = candidate.rejection_reasons[0] if candidate.rejection_reasons else ""
+
+        if candidate.status is CandidateStatus.APPROVED:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO accepted_candidates (
+                    market_id, title, metric, location, region, threshold_value, unit,
+                    no_price, liquidity_usd, resolution_hours
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    candidate.market_id,
+                    candidate.title,
+                    candidate.metric,
+                    candidate.location,
+                    candidate.region,
+                    candidate.threshold,
+                    candidate.unit,
+                    candidate.no_price,
+                    candidate.liquidity_usd,
+                    candidate.resolution_hours,
+                ),
+            )
+            return
+
+        table_name = (
+            "review_candidates"
+            if candidate.status is CandidateStatus.REVIEW
+            else "rejected_candidates"
+        )
+        connection.execute(
+            f"""
+            INSERT OR REPLACE INTO {table_name} (
+                market_id, title, location, reason, reasons_csv
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                candidate.market_id,
+                candidate.title,
+                candidate.location,
+                primary_reason,
+                reasons_csv,
+            ),
+        )
 
 
 def bootstrap_storage(database_path: Path) -> sqlite3.Connection:
@@ -220,26 +311,8 @@ def bootstrap_storage(database_path: Path) -> sqlite3.Connection:
 
 def save_approved_candidate(connection: sqlite3.Connection, market: dict) -> None:
     candidate = _candidate_from_market(market, CandidateStatus.APPROVED)
-    connection.execute(
-        """
-        INSERT OR REPLACE INTO accepted_candidates (
-            market_id, title, metric, location, region, threshold_value, unit,
-            no_price, liquidity_usd, resolution_hours
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            candidate.market_id,
-            candidate.title,
-            candidate.metric,
-            candidate.location,
-            candidate.region,
-            candidate.threshold,
-            candidate.unit,
-            candidate.no_price,
-            candidate.liquidity_usd,
-            candidate.resolution_hours,
-        ),
-    )
+    storage = CandidateStorage(Path(connection.execute("PRAGMA database_list").fetchone()["file"]))
+    storage._upsert_bucket_candidate(connection, candidate)
     connection.commit()
 
 
@@ -254,19 +327,6 @@ def save_rejected_candidate(connection: sqlite3.Connection, market: dict) -> Non
         status,
         reasons=(market.get("expected_rejection_reason") or market["expected_bucket"],),
     )
-    table_name = "review_candidates" if status is CandidateStatus.REVIEW else "rejected_candidates"
-    connection.execute(
-        f"""
-        INSERT OR REPLACE INTO {table_name} (
-            market_id, title, location, reason, reasons_csv
-        ) VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            candidate.market_id,
-            candidate.title,
-            candidate.location,
-            candidate.rejection_reasons[0],
-            ",".join(candidate.rejection_reasons),
-        ),
-    )
+    storage = CandidateStorage(Path(connection.execute("PRAGMA database_list").fetchone()["file"]))
+    storage._upsert_bucket_candidate(connection, candidate)
     connection.commit()

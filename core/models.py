@@ -48,4 +48,5 @@ class CandidateRecord:
     no_price: float | None = None
     liquidity_usd: float | None = None
     resolution_hours: int | None = None
+    normalization_status: CandidateStatus | None = None
     rejection_reasons: tuple[str, ...] = field(default_factory=tuple)
