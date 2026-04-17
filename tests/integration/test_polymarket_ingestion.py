@@ -1,89 +1,70 @@
 from __future__ import annotations
 
-import re
+import pytest
+
+from core.clob_client import PolymarketDiscoveryClient, PolymarketPayloadError
+from core.market_scanner import MarketScanner
 
 
-TEMPERATURE_TITLE = re.compile(
-    r"^Will (?P<location>.+) hit (?P<threshold>\d+)F or higher on (?P<month>[A-Za-z]+) (?P<day>\d{1,2})\?$"
-)
-PRECIPITATION_TITLE = re.compile(
-    r"^Will (?P<location>.+) record measurable rain on (?P<month>[A-Za-z]+) (?P<day>\d{1,2})\?$"
-)
+def test_discovery_client_normalizes_fixture_payload(weather_market_payloads: dict) -> None:
+    client = PolymarketDiscoveryClient()
+
+    records = client.load_markets(weather_market_payloads)
+
+    assert len(records) == 6
+    assert records[0].market_id == "wx-temp-phx-001"
+    assert records[0].title == "Will Phoenix hit 110F or higher on April 18?"
+    assert records[0].is_weather_market is True
 
 
-def normalize_market(market: dict) -> dict:
-    title = market["title"]
+def test_discovery_client_rejects_malformed_payloads() -> None:
+    client = PolymarketDiscoveryClient()
 
-    if match := TEMPERATURE_TITLE.match(title):
-        return {
-            "market_id": market["id"],
-            "bucket": "approved",
-            "metric": "temperature",
-            "location": match.group("location"),
-            "threshold": int(match.group("threshold")),
-            "reason": None,
-        }
-
-    if match := PRECIPITATION_TITLE.match(title):
-        return {
-            "market_id": market["id"],
-            "bucket": "approved",
-            "metric": "precipitation",
-            "location": match.group("location"),
-            "threshold": 0,
-            "reason": None,
-        }
-
-    if "heat-index danger levels" in title:
-        return {
-            "market_id": market["id"],
-            "bucket": "review",
-            "metric": None,
-            "location": "Miami",
-            "threshold": None,
-            "reason": "ambiguous_threshold",
-        }
-
-    return {
-        "market_id": market["id"],
-        "bucket": "rejected",
-        "metric": None,
-        "location": market["expected_location"],
-        "threshold": None,
-        "reason": "unsupported_weather_type",
-    }
+    with pytest.raises(PolymarketPayloadError, match="missing required fields: end_iso"):
+        client.load_markets(
+            {
+                "markets": [
+                    {
+                        "id": "broken-001",
+                        "slug": "broken-001",
+                        "title": "Will Phoenix hit 110F or higher on April 18?",
+                        "description": "broken payload missing end_iso",
+                        "liquidity_usd": 8500,
+                        "volume_usd": 24000,
+                        "no_price": 0.42,
+                    }
+                ]
+            }
+        )
 
 
-def ingest_markets(markets: list[dict]) -> dict[str, list[dict]]:
-    results = {"approved": [], "review": [], "rejected": []}
-    for market in markets:
-        normalized = normalize_market(market)
-        results[normalized["bucket"]].append(normalized)
-    return results
+def test_market_scanner_hands_off_only_weather_records(weather_market_payloads: dict) -> None:
+    scanner = MarketScanner()
+
+    handoff = scanner.prepare_weather_scan(weather_market_payloads)
+
+    assert handoff.source == "polymarket"
+    assert len(handoff.weather_markets) == 6
+    assert handoff.skipped_markets == ()
 
 
-def test_ingestion_splits_weather_fixture_into_expected_buckets(weather_markets: list[dict]) -> None:
-    results = ingest_markets(weather_markets)
-
-    assert len(results["approved"]) == 4
-    assert len(results["review"]) == 1
-    assert len(results["rejected"]) == 1
-
-
-def test_ingestion_preserves_required_fields_for_supported_weather_markets(
-    weather_markets: list[dict],
+def test_market_scanner_dispatches_valid_weather_records_to_consumer(
+    weather_market_payloads: dict,
 ) -> None:
-    results = ingest_markets(weather_markets)
+    scanner = MarketScanner()
+    received_ids: list[str] = []
 
-    for candidate in results["approved"]:
-        assert candidate["metric"] in {"temperature", "precipitation"}
-        assert candidate["location"]
-        assert candidate["threshold"] is not None
-        assert candidate["reason"] is None
+    def consume(markets) -> list[str]:
+        received_ids.extend(market.market_id for market in markets)
+        return received_ids
 
+    result = scanner.dispatch_weather_scan(weather_market_payloads, consume)
 
-def test_ingestion_captures_review_and_rejection_reasons(weather_markets: list[dict]) -> None:
-    results = ingest_markets(weather_markets)
-
-    assert results["review"][0]["reason"] == "ambiguous_threshold"
-    assert results["rejected"][0]["reason"] == "unsupported_weather_type"
+    assert result == [
+        "wx-temp-phx-001",
+        "wx-rain-sea-002",
+        "wx-temp-dal-003",
+        "wx-rain-nyc-004",
+        "wx-heat-miami-005",
+        "wx-wind-chi-006",
+    ]
