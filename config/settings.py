@@ -1,0 +1,69 @@
+"""Typed runtime settings for market discovery and persistence."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import os
+from typing import Mapping
+
+
+@dataclass(frozen=True)
+class ScanSettings:
+    """Scanner and storage thresholds used during market discovery."""
+
+    database_path: str = "data/trades.db"
+    min_market_liquidity_usd: int = 5000
+    max_entry_price: float = 0.85
+    max_resolution_hours: int = 72
+    scan_interval_seconds: int = 300
+
+    @property
+    def max_no_price(self) -> float:
+        """Backward-compatible alias for older tests and callers."""
+
+        return self.max_entry_price
+
+
+def load_settings(
+    overrides: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> ScanSettings:
+    """Build settings from code defaults plus environment-style overrides."""
+
+    raw_env = dict(os.environ if environ is None else environ)
+    if overrides:
+        raw_env.update(overrides)
+
+    return ScanSettings(
+        database_path=raw_env.get("DATABASE_PATH", ScanSettings.database_path),
+        min_market_liquidity_usd=int(
+            raw_env.get(
+                "MIN_MARKET_LIQUIDITY_USD",
+                str(ScanSettings.min_market_liquidity_usd),
+            )
+        ),
+        max_entry_price=float(
+            raw_env.get(
+                "MAX_ENTRY_PRICE",
+                raw_env.get("MAX_NO_PRICE", str(ScanSettings.max_entry_price)),
+            )
+        ),
+        max_resolution_hours=int(
+            raw_env.get(
+                "MAX_RESOLUTION_HOURS",
+                str(ScanSettings.max_resolution_hours),
+            )
+        ),
+        scan_interval_seconds=int(
+            raw_env.get(
+                "SCAN_INTERVAL_SECONDS",
+                str(ScanSettings.scan_interval_seconds),
+            )
+        ),
+    )
+
+
+def get_settings() -> ScanSettings:
+    """Load settings from the process environment."""
+
+    return load_settings()
