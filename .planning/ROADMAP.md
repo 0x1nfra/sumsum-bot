@@ -37,7 +37,7 @@ Plans:
 - [x] 01-02: Implement the settings layer, shared models, and storage abstractions with SQLite as the default backend.
 - [x] 01-03: Create the deferred BTC and sports strategy package skeletons as thin placeholders.
 - [x] 01-04: Implement Polymarket weather market ingestion and normalization.
-- [ ] 01-05: Add candidate filtering rules, persisted scan outputs, and continuous scan entrypoints for downstream signal evaluation.
+- [x] 01-05: Add candidate filtering rules, persisted scan outputs, and continuous scan entrypoints for downstream signal evaluation.
 
 ### Phase 2: NOAA Signal Engine
 **Goal**: Integrate NOAA forecast data and convert market candidates into inspectable weather signals.
