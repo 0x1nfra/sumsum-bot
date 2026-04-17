@@ -13,6 +13,10 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
 
+[tool.setuptools.packages.find]
+include = ["config*", "core*", "strategies*"]
+exclude = ["tests*", "data*", "backtest*"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra"
