@@ -29,12 +29,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Operator can run a weather market scan and get normalized candidate markets from Polymarket data.
   2. Candidate markets are filtered by configurable liquidity, price, and resolution-window rules.
   3. Project storage and configuration foundations exist for later paper-trading and dashboard phases.
-**Plans**: 3 plans
+**Plans**: 6 plans
 
 Plans:
-- [ ] 01-01: Create the project structure, settings layer, and storage abstractions with SQLite as the default backend.
-- [ ] 01-02: Implement Polymarket weather market ingestion and normalization.
-- [ ] 01-03: Add candidate filtering rules and scanner outputs for downstream signal evaluation.
+- [x] 01-00: Create the Wave 0 validation harness, fixtures, and test files used by Phase 1.
+- [x] 01-01: Create the full documented project skeleton with thin future-facing modules and entrypoints.
+- [ ] 01-02: Implement the settings layer, shared models, and storage abstractions with SQLite as the default backend.
+- [ ] 01-03: Create the deferred BTC and sports strategy package skeletons as thin placeholders.
+- [ ] 01-04: Implement Polymarket weather market ingestion and normalization.
+- [ ] 01-05: Add candidate filtering rules, persisted scan outputs, and continuous scan entrypoints for downstream signal evaluation.
 
 ### Phase 2: NOAA Signal Engine
 **Goal**: Integrate NOAA forecast data and convert market candidates into inspectable weather signals.
