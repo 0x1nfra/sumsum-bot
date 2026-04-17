@@ -59,6 +59,7 @@ def apply_candidate_filters(
         no_price=candidate.no_price,
         liquidity_usd=candidate.liquidity_usd,
         resolution_hours=candidate.resolution_hours,
+        normalization_status=candidate.normalization_status or candidate.status,
         rejection_reasons=tuple(rejection_reasons),
     )
 
@@ -66,6 +67,8 @@ def apply_candidate_filters(
 def scan_weather_markets(
     markets: Iterable[RawMarketRecord],
     settings: ScanSettings | None = None,
+    *,
+    apply_filters: bool = True,
 ) -> WeatherScannerResult:
     runtime_settings = settings or ScanSettings()
     approved: list[CandidateRecord] = []
@@ -74,7 +77,7 @@ def scan_weather_markets(
 
     for market in markets:
         normalized = normalize_weather_market(market).to_candidate_record()
-        filtered = apply_candidate_filters(normalized, runtime_settings)
+        filtered = apply_candidate_filters(normalized, runtime_settings) if apply_filters else normalized
         if filtered.status is CandidateStatus.APPROVED:
             approved.append(filtered)
         elif filtered.status is CandidateStatus.REVIEW:
