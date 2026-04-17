@@ -14,6 +14,18 @@ EXPECTED_TOP_LEVEL_ENTRIES = [
     "requirements.txt",
 ]
 
+EXPECTED_DEFERRED_STRATEGY_PATHS = [
+    "strategies/weather/noaa_client.py",
+    "strategies/weather/edge_calculator.py",
+    "strategies/btc_5min/__init__.py",
+    "strategies/btc_5min/signal_engine.py",
+    "strategies/btc_5min/scanner.py",
+    "strategies/sports/__init__.py",
+    "strategies/sports/odds_client.py",
+    "strategies/sports/comparator.py",
+    "strategies/sports/scanner.py",
+]
+
 EXPECTED_MODULE_NAMES = [
     "clob_client.py",
     "kelly_engine.py",
@@ -53,3 +65,8 @@ def test_layout_keeps_weather_modules_inside_strategy_boundary() -> None:
     assert "weather/" in prd_text
     assert len(weather_module_names) == 3
     assert all(path in prd_text for path in weather_module_names)
+
+
+def test_deferred_strategy_placeholders_exist_in_documented_locations() -> None:
+    for relative_path in EXPECTED_DEFERRED_STRATEGY_PATHS:
+        assert Path(relative_path).is_file()
