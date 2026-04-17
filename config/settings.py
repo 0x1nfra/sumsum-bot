@@ -13,9 +13,15 @@ class ScanSettings:
 
     database_path: str = "data/trades.db"
     min_market_liquidity_usd: int = 5000
-    max_no_price: float = 0.85
+    max_entry_price: float = 0.85
     max_resolution_hours: int = 72
     scan_interval_seconds: int = 300
+
+    @property
+    def max_no_price(self) -> float:
+        """Backward-compatible alias for older tests and callers."""
+
+        return self.max_entry_price
 
 
 def load_settings(
@@ -36,7 +42,12 @@ def load_settings(
                 str(ScanSettings.min_market_liquidity_usd),
             )
         ),
-        max_no_price=float(raw_env.get("MAX_NO_PRICE", str(ScanSettings.max_no_price))),
+        max_entry_price=float(
+            raw_env.get(
+                "MAX_ENTRY_PRICE",
+                raw_env.get("MAX_NO_PRICE", str(ScanSettings.max_entry_price)),
+            )
+        ),
         max_resolution_hours=int(
             raw_env.get(
                 "MAX_RESOLUTION_HOURS",

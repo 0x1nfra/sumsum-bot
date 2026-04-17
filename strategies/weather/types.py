@@ -43,5 +43,6 @@ class WeatherMarketCandidate:
             unit=self.unit,
             no_price=self.no_price,
             liquidity_usd=self.liquidity_usd,
+            resolution_hours=self.resolution_hours,
             rejection_reasons=self.reason_codes,
         )
