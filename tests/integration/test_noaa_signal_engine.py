@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -90,9 +89,9 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     assert accepted.forecast_update_time == "2026-04-18T04:00:00+00:00"
     assert accepted.forecast_source_url == "https://api.weather.gov/gridpoints/PHX/1,1"
     assert accepted.no_price == 0.42
-    assert accepted.derived_yes_probability == 0.7
-    assert accepted.derived_no_probability == 0.30000000000000004
-    assert accepted.edge_against_no_price == -0.11999999999999994
+    assert accepted.derived_yes_probability == 0.3
+    assert accepted.derived_no_probability == 0.7
+    assert accepted.edge_against_no_price == 0.27999999999999997
     assert accepted.status.value == "accepted"
     assert accepted.decision_reason == "edge_threshold_passed"
 

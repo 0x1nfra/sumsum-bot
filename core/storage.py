@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sqlite3
 from typing import Iterable
 
 from config.settings import ScanSettings, get_settings
-from core.models import CandidateRecord, CandidateStatus, ScanResultMetadata
+from core.models import (
+    CandidateRecord,
+    CandidateStatus,
+    ScanResultMetadata,
+    SignalEvaluationRecord,
+    SignalEvaluationStatus,
+)
 
 
 def _candidate_from_market(market: dict, status: CandidateStatus, reasons: Iterable[str] = ()) -> CandidateRecord:
@@ -122,6 +129,29 @@ class CandidateStorage:
                     reasons_csv TEXT NOT NULL,
                     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
                 );
+
+                CREATE TABLE IF NOT EXISTS signal_evaluations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    market_id TEXT NOT NULL,
+                    scan_run_id INTEGER,
+                    location TEXT NOT NULL,
+                    mapping_city_key TEXT NOT NULL,
+                    contract_family TEXT,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    forecast_update_time TEXT,
+                    forecast_source_url TEXT,
+                    no_price REAL NOT NULL,
+                    derived_yes_probability REAL,
+                    derived_no_probability REAL,
+                    edge_against_no_price REAL,
+                    decision_reason TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
             self._ensure_column(connection, "accepted_candidates", "contract_family", "TEXT")
@@ -178,6 +208,64 @@ class CandidateStorage:
             connection.commit()
 
         return scan_run_id
+
+    def persist_signal_evaluations(
+        self,
+        source: str,
+        evaluations: Iterable[SignalEvaluationRecord],
+    ) -> int:
+        self.bootstrap()
+        evaluation_list = list(evaluations)
+        with self.connect() as connection:
+            for evaluation in evaluation_list:
+                self._insert_signal_evaluation(connection, source, evaluation)
+            connection.commit()
+        return len(evaluation_list)
+
+    def list_signal_evaluations(
+        self,
+        market_id: str | None = None,
+    ) -> list[SignalEvaluationRecord]:
+        self.bootstrap()
+        query = """
+            SELECT market_id, scan_run_id, location, mapping_city_key, contract_family,
+                   market_date_local, market_window_start_local, market_window_end_local,
+                   forecast_update_time, forecast_source_url, no_price,
+                   derived_yes_probability, derived_no_probability, edge_against_no_price,
+                   decision_reason, status, evidence_json
+            FROM signal_evaluations
+        """
+        params: tuple[object, ...] = ()
+        if market_id is not None:
+            query += " WHERE market_id = ?"
+            params = (market_id,)
+        query += " ORDER BY market_id, id"
+
+        with self.connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+
+        return [
+            SignalEvaluationRecord(
+                market_id=row["market_id"],
+                scan_run_id=row["scan_run_id"],
+                location=row["location"],
+                mapping_city_key=row["mapping_city_key"],
+                contract_family=row["contract_family"],
+                market_date_local=row["market_date_local"],
+                market_window_start_local=row["market_window_start_local"],
+                market_window_end_local=row["market_window_end_local"],
+                forecast_update_time=row["forecast_update_time"],
+                forecast_source_url=row["forecast_source_url"],
+                no_price=float(row["no_price"]),
+                derived_yes_probability=row["derived_yes_probability"],
+                derived_no_probability=row["derived_no_probability"],
+                edge_against_no_price=row["edge_against_no_price"],
+                decision_reason=row["decision_reason"],
+                status=SignalEvaluationStatus(row["status"]),
+                evidence=json.loads(row["evidence_json"]),
+            )
+            for row in rows
+        ]
 
     def list_candidates(self, status: CandidateStatus) -> list[CandidateRecord]:
         self.bootstrap()
@@ -354,6 +442,44 @@ class CandidateStorage:
         if column_name in columns:
             return
         connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+
+    def _insert_signal_evaluation(
+        self,
+        connection: sqlite3.Connection,
+        source: str,
+        evaluation: SignalEvaluationRecord,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO signal_evaluations (
+                source, market_id, scan_run_id, location, mapping_city_key, contract_family,
+                market_date_local, market_window_start_local, market_window_end_local,
+                forecast_update_time, forecast_source_url, no_price,
+                derived_yes_probability, derived_no_probability, edge_against_no_price,
+                decision_reason, status, evidence_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source,
+                evaluation.market_id,
+                evaluation.scan_run_id,
+                evaluation.location,
+                evaluation.mapping_city_key,
+                evaluation.contract_family,
+                evaluation.market_date_local,
+                evaluation.market_window_start_local,
+                evaluation.market_window_end_local,
+                evaluation.forecast_update_time,
+                evaluation.forecast_source_url,
+                evaluation.no_price,
+                evaluation.derived_yes_probability,
+                evaluation.derived_no_probability,
+                evaluation.edge_against_no_price,
+                evaluation.decision_reason,
+                evaluation.status.value,
+                json.dumps(evaluation.evidence, sort_keys=True),
+            ),
+        )
 
 
 def bootstrap_storage(database_path: Path) -> sqlite3.Connection:
