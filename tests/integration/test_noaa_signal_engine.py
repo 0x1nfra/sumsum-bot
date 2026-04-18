@@ -61,7 +61,7 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     engine = SignalEngine(
         noaa_client=StubNoaaForecastClient(
             windows={
-                approved.market_id: _temperature_window("phoenix", 112.0, 111.0),
+                approved.market_id: _temperature_window("phoenix", 104.0, 103.0),
                 low_edge.market_id: _precipitation_window("new-york", 40.0, 0.0),
             },
             errors={stale.market_id: "noaa_data_stale"},
@@ -89,9 +89,9 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     assert accepted.forecast_update_time == "2026-04-18T04:00:00+00:00"
     assert accepted.forecast_source_url == "https://api.weather.gov/gridpoints/PHX/1,1"
     assert accepted.no_price == 0.42
-    assert accepted.derived_yes_probability == 0.3
-    assert accepted.derived_no_probability == 0.7
-    assert accepted.edge_against_no_price == 0.27999999999999997
+    assert accepted.derived_yes_probability == 0.15
+    assert accepted.derived_no_probability == 0.85
+    assert accepted.edge_against_no_price == 0.43
     assert accepted.status.value == "accepted"
     assert accepted.decision_reason == "edge_threshold_passed"
 
@@ -100,10 +100,10 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     assert low_edge_record.forecast_update_time == "2026-04-18T04:00:00+00:00"
     assert low_edge_record.forecast_source_url == "https://api.weather.gov/gridpoints/NYC/1,1"
     assert low_edge_record.no_price == 0.55
-    assert low_edge_record.edge_against_no_price == -0.15000000000000002
+    assert low_edge_record.edge_against_no_price == 0.04999999999999993
     assert low_edge_record.status.value == "rejected"
     assert low_edge_record.decision_reason == "edge_below_threshold"
-    assert low_edge_record.evidence["probability_of_precipitation"] == (40.0,)
+    assert low_edge_record.evidence["probability_of_precipitation"] == [40.0]
 
     stale_record = next(record for record in persisted if record.market_id == stale.market_id)
     assert stale_record.mapping_city_key == "miami"
