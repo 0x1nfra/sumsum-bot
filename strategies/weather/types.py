@@ -31,6 +31,12 @@ class WeatherMarketCandidate:
 
     @property
     def resolution_hours(self) -> int | None:
+        _market_date_local, _market_window_start_local, market_window_end_local = self._contract_window_fields()
+        if market_window_end_local is not None:
+            end = datetime.fromisoformat(market_window_end_local).astimezone(ZoneInfo("UTC"))
+            now = datetime.now(ZoneInfo("UTC")).replace(hour=0, minute=0, second=0, microsecond=0)
+            delta = end - now
+            return max(int(delta.total_seconds() // 3600), 0)
         if self.resolution_at is None:
             return None
         now = datetime.now(tz=self.resolution_at.tzinfo)

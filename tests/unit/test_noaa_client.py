@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 from typing import Any
 
@@ -49,6 +49,10 @@ def signal_input() -> WeatherSignalInput:
         market_window_start_local="2026-04-18T00:00:00-07:00",
         market_window_end_local="2026-04-19T00:00:00-07:00",
     )
+
+
+def _window_start_utc(signal_input: WeatherSignalInput) -> datetime:
+    return datetime.fromisoformat(signal_input.market_window_start_local).astimezone(UTC)
 
 
 @pytest.fixture()
@@ -136,11 +140,19 @@ def test_fetch_forecast_window_preserves_overlap_evidence(
     grid_payload: dict[str, Any],
 ) -> None:
     client = NoaaForecastClient(noaa_settings)
+    fresh_update_time = _window_start_utc(signal_input) + timedelta(hours=1)
+    happy_path_payload = {
+        **grid_payload,
+        "properties": {
+            **grid_payload["properties"],
+            "updateTime": fresh_update_time.isoformat(),
+        },
+    }
     _install_urlopen_stub(
         monkeypatch,
         {
             "https://api.weather.gov/points/33.4484,-112.0740": points_payload,
-            "https://api.weather.gov/gridpoints/PSR/170,56": grid_payload,
+            "https://api.weather.gov/gridpoints/PSR/170,56": happy_path_payload,
         },
     )
 
@@ -150,7 +162,7 @@ def test_fetch_forecast_window_preserves_overlap_evidence(
     assert forecast_window.temperature_overlap_values == (101, 112, 108)
     assert forecast_window.probability_of_precipitation == (15.0,)
     assert forecast_window.quantitative_precipitation == (0.0,)
-    assert forecast_window.update_time == datetime(2026, 4, 18, 8, 0, tzinfo=UTC)
+    assert forecast_window.update_time == fresh_update_time
     assert forecast_window.forecast_source_url == "https://api.weather.gov/gridpoints/PSR/170,56"
 
 
@@ -162,11 +174,14 @@ def test_fetch_forecast_window_rejects_stale_grid_data(
     grid_payload: dict[str, Any],
 ) -> None:
     client = NoaaForecastClient(noaa_settings)
+    stale_update_time = _window_start_utc(signal_input) - timedelta(
+        minutes=noaa_settings.noaa_max_data_age_minutes + 1
+    )
     stale_grid_payload = {
         **grid_payload,
         "properties": {
             **grid_payload["properties"],
-            "updateTime": "2026-04-17T00:00:00+00:00",
+            "updateTime": stale_update_time.isoformat(),
         },
     }
     _install_urlopen_stub(
@@ -189,10 +204,12 @@ def test_fetch_forecast_window_rejects_missing_overlap(
     grid_payload: dict[str, Any],
 ) -> None:
     client = NoaaForecastClient(noaa_settings)
+    fresh_update_time = _window_start_utc(signal_input) + timedelta(hours=1)
     mismatch_payload = {
         **grid_payload,
         "properties": {
             **grid_payload["properties"],
+            "updateTime": fresh_update_time.isoformat(),
             "temperature": {
                 "values": [
                     {"validTime": "2026-04-20T00:00:00+00:00/PT6H", "value": 99},
@@ -234,9 +251,10 @@ def test_fetch_forecast_window_rejects_incomplete_payload(
     points_payload: dict[str, Any],
 ) -> None:
     client = NoaaForecastClient(noaa_settings)
+    fresh_update_time = _window_start_utc(signal_input) + timedelta(hours=1)
     incomplete_grid_payload = {
         "properties": {
-            "updateTime": "2026-04-18T08:00:00+00:00",
+            "updateTime": fresh_update_time.isoformat(),
             "temperature": {"values": []},
         }
     }
