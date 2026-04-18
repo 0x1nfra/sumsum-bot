@@ -13,7 +13,7 @@ The first milestone takes Sumsum Bot from a documentation-only repo to a deploya
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Market Discovery Foundation** - Build the shared models, configuration, persistence, and weather market scanner.
-- [ ] **Phase 2: NOAA Signal Engine** - Turn market candidates into explicit weather trade signals.
+- [x] **Phase 2: NOAA Signal Engine** - Turn market candidates into explicit weather trade signals.
 - [ ] **Phase 3: Risk and Portfolio Controls** - Enforce bankroll-aware sizing, guardrails, and trade gating.
 - [ ] **Phase 4: Paper Trading Runtime** - Run continuous simulated trading with position lifecycle tracking.
 - [ ] **Phase 5: Dashboard and Logging** - Expose portfolio state, trade history, and operational diagnostics.
@@ -50,9 +50,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Preserve contract-day signal inputs and implement curated NOAA mapping/client rejection paths.
-- [ ] 02-02-PLAN.md — Build contract-family edge calculation rules and explicit acceptance/rejection outputs.
-- [ ] 02-03-PLAN.md — Persist append-only signal evaluations and wire the end-to-end signal engine.
+- [x] 02-01-PLAN.md — Preserve contract-day signal inputs and implement curated NOAA mapping/client rejection paths.
+- [x] 02-02-PLAN.md — Build contract-family edge calculation rules and explicit acceptance/rejection outputs.
+- [x] 02-03-PLAN.md — Persist append-only signal evaluations and wire the end-to-end signal engine.
 
 ### Phase 3: Risk and Portfolio Controls
 **Goal**: Add bankroll management, trade sizing, and hard risk controls around weather signals.
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Market Discovery Foundation | 6/6 | Complete | 2026-04-17 |
-| 2. NOAA Signal Engine | 0/3 | Planned | - |
+| 2. NOAA Signal Engine | 3/3 | Complete | 2026-04-18 |
 | 3. Risk and Portfolio Controls | 0/2 | Not started | - |
 | 4. Paper Trading Runtime | 0/3 | Not started | - |
 | 5. Dashboard and Logging | 0/3 | Not started | - |
