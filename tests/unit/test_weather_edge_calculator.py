@@ -39,7 +39,7 @@ def temperature_noaa_window() -> NoaaForecastWindow:
         market_date_local="2026-04-18",
         market_window_start_local="2026-04-18T00:00:00-07:00",
         market_window_end_local="2026-04-19T00:00:00-07:00",
-        temperature_overlap_values=(111.0, 113.0, 115.0),
+        temperature_overlap_values=(111.0, 112.0, 113.0),
         probability_of_precipitation=(10.0,),
         quantitative_precipitation=(0.0,),
         update_time=datetime(2026, 4, 18, 8, tzinfo=UTC),
@@ -94,7 +94,7 @@ def test_temperature_signal_accepts_when_noaa_no_edge_exceeds_threshold(
     assert evaluation.derived_no_probability == pytest.approx(0.30)
     assert evaluation.edge_against_no_price == pytest.approx(0.18)
     assert evaluation.reason_codes == ()
-    assert evaluation.evidence["temperature_overlap_values"] == (111.0, 113.0, 115.0)
+    assert evaluation.evidence["temperature_overlap_values"] == (111.0, 112.0, 113.0)
     assert evaluation.evidence["oriented_temperature_margin"] == pytest.approx(3.0)
     assert evaluation.evidence["temperature_band_label"] == ">= 2.0 and < 5.0"
     assert evaluation.evidence["market_date_local"] == date(2026, 4, 18).isoformat()
