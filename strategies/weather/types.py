@@ -34,7 +34,7 @@ class WeatherMarketCandidate:
         _market_date_local, _market_window_start_local, market_window_end_local = self._contract_window_fields()
         if market_window_end_local is not None:
             end = datetime.fromisoformat(market_window_end_local).astimezone(ZoneInfo("UTC"))
-            now = datetime.now(ZoneInfo("UTC")).replace(hour=0, minute=0, second=0, microsecond=0)
+            now = datetime.now(ZoneInfo("UTC"))
             delta = end - now
             return max(int(delta.total_seconds() // 3600), 0)
         if self.resolution_at is None:
@@ -87,11 +87,17 @@ class WeatherMarketCandidate:
             return None
         mapping = get_weather_location(self.location)
         local_zone = ZoneInfo(mapping.timezone) if mapping is not None else ZoneInfo("UTC")
-        year = self.resolution_at.astimezone(local_zone).year
-        return datetime.strptime(
-            f"{match.group('month')} {match.group('day')} {year}",
+        resolution_local = self.resolution_at.astimezone(local_zone)
+        market_date = datetime.strptime(
+            f"{match.group('month')} {match.group('day')} {resolution_local.year}",
             "%B %d %Y",
         ).date()
+        day_delta = (market_date - resolution_local.date()).days
+        if day_delta > 180:
+            market_date = market_date.replace(year=market_date.year - 1)
+        elif day_delta < -180:
+            market_date = market_date.replace(year=market_date.year + 1)
+        return market_date
 
 
 @dataclass(frozen=True)

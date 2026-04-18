@@ -105,3 +105,44 @@ def test_storage_round_trips_contract_family_and_local_window_fields(
     assert stored.market_window_start_local == "2026-04-18T00:00:00-07:00"
     assert stored.market_window_end_local == "2026-04-19T00:00:00-07:00"
     assert stored.location_key == "phoenix"
+
+
+def test_storage_moves_candidate_between_status_buckets_without_stale_rows(
+    temp_sqlite_db_path: Path,
+) -> None:
+    storage = CandidateStorage(temp_sqlite_db_path)
+    reviewed = CandidateRecord(
+        market_id="wx-temp-phx-009",
+        title="Will Phoenix hit 110F or higher on April 18?",
+        status=CandidateStatus.REVIEW,
+        location="Phoenix",
+        normalization_status=CandidateStatus.REVIEW,
+        rejection_reasons=("ambiguous_threshold",),
+    )
+    approved = CandidateRecord(
+        market_id="wx-temp-phx-009",
+        title="Will Phoenix hit 110F or higher on April 18?",
+        status=CandidateStatus.APPROVED,
+        location="Phoenix",
+        contract_family="temperature",
+        metric="temperature",
+        threshold=110.0,
+        unit="F",
+        no_price=0.42,
+        liquidity_usd=8500.0,
+        resolution_hours=36,
+        market_date_local="2026-04-18",
+        market_window_start_local="2026-04-18T00:00:00-07:00",
+        market_window_end_local="2026-04-19T00:00:00-07:00",
+        location_key="phoenix",
+        normalization_status=CandidateStatus.APPROVED,
+    )
+
+    storage.save_candidate(reviewed)
+    storage.save_candidate(approved)
+
+    assert [candidate.market_id for candidate in storage.list_candidates(CandidateStatus.APPROVED)] == [
+        "wx-temp-phx-009"
+    ]
+    assert storage.list_candidates(CandidateStatus.REVIEW) == []
+    assert storage.list_candidates(CandidateStatus.REJECTED) == []

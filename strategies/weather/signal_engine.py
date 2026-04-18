@@ -43,11 +43,24 @@ class SignalEngine:
         self,
         candidates: tuple[CandidateRecord, ...] | list[CandidateRecord] | None = None,
     ) -> SignalEngineResult:
-        approved_candidates = tuple(candidates or self.storage.list_candidates(CandidateStatus.APPROVED))
+        approved_candidates = tuple(
+            self.storage.list_candidates(CandidateStatus.APPROVED) if candidates is None else candidates
+        )
         evaluations: list[SignalEvaluationRecord] = []
 
         for candidate in approved_candidates:
-            signal_input = WeatherSignalInput.from_candidate_record(candidate)
+            try:
+                signal_input = WeatherSignalInput.from_candidate_record(candidate)
+            except ValueError as exc:
+                evaluations.append(
+                    self._rejected_candidate_evaluation(
+                        candidate,
+                        reason_code="invalid_signal_input",
+                        detail=str(exc),
+                    )
+                )
+                continue
+
             try:
                 forecast_window = self.noaa_client.fetch_forecast_window(signal_input)
             except NoaaDataError as exc:
@@ -115,6 +128,27 @@ class SignalEngine:
         candidate: CandidateRecord,
         reason_code: str,
     ) -> SignalEvaluationRecord:
+        return self._rejected_candidate_evaluation(candidate, reason_code=reason_code)
+
+    def _rejected_candidate_evaluation(
+        self,
+        candidate: CandidateRecord,
+        *,
+        reason_code: str,
+        detail: str | None = None,
+    ) -> SignalEvaluationRecord:
+        evidence = {
+            "market_id": candidate.market_id,
+            "contract_family": candidate.contract_family,
+            "mapping_city_key": candidate.location_key,
+            "market_date_local": candidate.market_date_local,
+            "market_window_start_local": candidate.market_window_start_local,
+            "market_window_end_local": candidate.market_window_end_local,
+            "reason_codes": [reason_code],
+        }
+        if detail:
+            evidence["error_detail"] = detail
+
         return SignalEvaluationRecord(
             market_id=candidate.market_id,
             scan_run_id=None,
@@ -132,17 +166,7 @@ class SignalEngine:
             edge_against_no_price=None,
             decision_reason=reason_code,
             status=SignalEvaluationStatus.REJECTED,
-            evidence=self._json_ready_evidence(
-                {
-                    "market_id": candidate.market_id,
-                    "contract_family": candidate.contract_family,
-                    "mapping_city_key": candidate.location_key,
-                    "market_date_local": candidate.market_date_local,
-                    "market_window_start_local": candidate.market_window_start_local,
-                    "market_window_end_local": candidate.market_window_end_local,
-                    "reason_codes": [reason_code],
-                }
-            ),
+            evidence=self._json_ready_evidence(evidence),
         )
 
     def _json_ready_evidence(self, value: object) -> object:

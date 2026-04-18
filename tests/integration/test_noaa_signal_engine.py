@@ -40,10 +40,10 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     )
     low_edge = _approved_candidate(
         market_id="wx-rain-nyc-004",
-        location="New York",
-        location_key="new-york",
+        location="New York City",
+        location_key="new-york-city",
         contract_family="precipitation",
-        title="Will New York record measurable rain on April 18?",
+        title="Will New York City record measurable rain on April 18?",
         threshold=None,
         unit=None,
         no_price=0.55,
@@ -62,7 +62,7 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
         noaa_client=StubNoaaForecastClient(
             windows={
                 approved.market_id: _temperature_window("phoenix", 104.0, 103.0),
-                low_edge.market_id: _precipitation_window("new-york", 40.0, 0.0),
+                low_edge.market_id: _precipitation_window("new-york-city", 40.0, 0.0),
             },
             errors={stale.market_id: "noaa_data_stale"},
         ),
@@ -96,7 +96,7 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     assert accepted.decision_reason == "edge_threshold_passed"
 
     low_edge_record = next(record for record in persisted if record.market_id == low_edge.market_id)
-    assert low_edge_record.mapping_city_key == "new-york"
+    assert low_edge_record.mapping_city_key == "new-york-city"
     assert low_edge_record.forecast_update_time == "2026-04-18T04:00:00+00:00"
     assert low_edge_record.forecast_source_url == "https://api.weather.gov/gridpoints/NYC/1,1"
     assert low_edge_record.no_price == 0.55
@@ -114,6 +114,81 @@ def test_signal_engine_persists_mapping_forecast_edge_and_reason_fields(
     assert stale_record.status.value == "rejected"
     assert stale_record.decision_reason == "noaa_data_stale"
     assert stale_record.evidence["reason_codes"] == ["noaa_data_stale"]
+
+
+def test_signal_engine_rejects_invalid_signal_input_without_aborting_batch(
+    temp_sqlite_db_path: Path,
+) -> None:
+    settings = ScanSettings(
+        database_path=str(temp_sqlite_db_path),
+        minimum_edge_to_trade=0.10,
+    )
+    storage = CandidateStorage.from_settings(settings)
+    invalid = _approved_candidate(
+        market_id="wx-temp-bad-006",
+        location="Phoenix",
+        location_key="phoenix",
+        threshold=110.0,
+        no_price=0.42,
+    )
+    invalid = CandidateRecord(
+        **{**invalid.__dict__, "location_key": None}
+    )
+    valid = _approved_candidate(
+        market_id="wx-temp-phx-007",
+        location="Phoenix",
+        location_key="phoenix",
+        threshold=110.0,
+        no_price=0.42,
+    )
+
+    engine = SignalEngine(
+        noaa_client=StubNoaaForecastClient(
+            windows={valid.market_id: _temperature_window("phoenix", 104.0, 103.0)},
+        ),
+        edge_calculator=WeatherEdgeCalculator(settings=settings),
+        storage=storage,
+        settings=settings,
+    )
+
+    result = engine.evaluate_candidates([invalid, valid])
+
+    assert result.inserted_count == 2
+    assert [record.market_id for record in result.accepted] == ["wx-temp-phx-007"]
+    assert [record.market_id for record in result.rejected] == ["wx-temp-bad-006"]
+    rejected = next(record for record in result.rejected if record.market_id == "wx-temp-bad-006")
+    assert rejected.decision_reason == "invalid_signal_input"
+    assert rejected.evidence["reason_codes"] == ["invalid_signal_input"]
+    assert "location_key" in rejected.evidence["error_detail"]
+
+
+def test_signal_engine_treats_explicit_empty_candidate_list_as_no_op(
+    temp_sqlite_db_path: Path,
+) -> None:
+    settings = ScanSettings(database_path=str(temp_sqlite_db_path))
+    storage = CandidateStorage.from_settings(settings)
+    candidate = _approved_candidate(
+        market_id="wx-temp-phx-008",
+        location="Phoenix",
+        location_key="phoenix",
+        threshold=110.0,
+        no_price=0.42,
+    )
+    storage.save_candidate(candidate)
+
+    engine = SignalEngine(
+        noaa_client=StubNoaaForecastClient({}),
+        edge_calculator=WeatherEdgeCalculator(settings=settings),
+        storage=storage,
+        settings=settings,
+    )
+
+    result = engine.evaluate_candidates([])
+
+    assert result.inserted_count == 0
+    assert result.accepted == ()
+    assert result.rejected == ()
+    assert storage.list_signal_evaluations() == []
 
 
 def _approved_candidate(

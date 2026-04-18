@@ -378,6 +378,11 @@ class CandidateStorage:
     ) -> None:
         reasons_csv = ",".join(candidate.rejection_reasons)
         primary_reason = candidate.rejection_reasons[0] if candidate.rejection_reasons else ""
+        for table_name in ("accepted_candidates", "review_candidates", "rejected_candidates"):
+            connection.execute(
+                f"DELETE FROM {table_name} WHERE market_id = ?",
+                (candidate.market_id,),
+            )
 
         if candidate.status is CandidateStatus.APPROVED:
             connection.execute(
