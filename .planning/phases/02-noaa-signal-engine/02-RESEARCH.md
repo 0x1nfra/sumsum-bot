@@ -318,17 +318,15 @@ def test_points_lookup(httpx_mock):
 | A2 | Precipitation YES probability should be derived from overlapping PoP plus QPF confirmation inside the market window, with the exact aggregation rule locked in code and evidence. [ASSUMED] | Common Pitfalls / Open Questions | Medium: a poor proxy can distort edge calculations even if transport and storage are correct. |
 | A3 | A dedicated append-only `signal_evaluations` table is preferable to extending only the Phase 1 bucket tables. [ASSUMED] | Common Pitfalls / Standard Stack | Low-Medium: schema shape can still change, but using only bucket tables would likely undercut WEAT-03 auditability. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What is the authoritative source of the contract day window for live Polymarket weather markets?**
-   - What we know: Fixtures encode titles like "on April 18" and also include `end_iso`, but the UTC timestamp does not line up with the local end of day for several cities. [VERIFIED: codebase grep]
-   - What's unclear: Whether live Polymarket payloads expose a separate resolution rule or whether title wording is the only reliable day-window source in practice. [VERIFIED: codebase grep] [ASSUMED]
-   - Recommendation: Plan a Wave 0 normalization update that persists explicit `market_date_local` and local window bounds, using title date plus city timezone until a better live-market field is verified. [VERIFIED: codebase grep] [ASSUMED]
+1. **Authoritative contract day window for Phase 2**
+   - **Decision:** For v1 Phase 2, the authoritative contract-day source is the normalized title date interpreted in the mapped city timezone. `end_iso` remains scanner-filter metadata only and must not be treated as the local settlement window. [VERIFIED: codebase grep] [VERIFIED: 02-CONTEXT.md]
+   - **Implementation consequence:** Every handoff from scanner to signal evaluation must preserve `market_date_local`, `market_window_start_local`, and `market_window_end_local` as explicit fields. If a future live Polymarket payload exposes a better settlement-window field, that can replace the title-derived window in a later phase; it is not required for Phase 2. [VERIFIED: codebase grep] [ASSUMED]
 
-2. **What exact probability proxy should Phase 2 lock for temperature threshold markets?**
-   - What we know: The project PRD requires explicit edge math and the NWS API exposes temperature layers, but this research did not verify a direct public endpoint for arbitrary threshold-hit probability in the main API flow. [VERIFIED: docs/prd.md] [CITED: https://weather-gov.github.io/api/gridpoints] [ASSUMED]
-   - What's unclear: Whether the team wants a deterministic banded proxy, a percentile-style proxy, or a conservative binary pass/fail signal for v1. [ASSUMED]
-   - Recommendation: Keep the first Phase 2 implementation conservative and explicitly provisional: use a small, documented banding rule and store all intermediate values so later calibration is possible. [ASSUMED]
+2. **Temperature threshold probability proxy for Phase 2**
+   - **Decision:** Lock a conservative deterministic banding rule based on the threshold-oriented temperature margin inside the overlapping NOAA window. After orienting the margin so positive values favor the market's YES side, compute `derived_yes_probability` from these exact bands: `>= 5.0 -> 0.85`, `>= 2.0 and < 5.0 -> 0.70`, `> -2.0 and < 2.0 -> 0.55`, `> -5.0 and <= -2.0 -> 0.30`, `<= -5.0 -> 0.15`. [ASSUMED]
+   - **Implementation consequence:** Persist the raw overlapping temperature evidence, the oriented margin, and the chosen probability band label in every temperature evaluation record so later calibration is possible without changing the Phase 2 audit trail. This keeps the proxy explicit, reproducible, and conservative while the project remains NOAA-only. [VERIFIED: 02-CONTEXT.md] [ASSUMED]
 
 ## Environment Availability
 
