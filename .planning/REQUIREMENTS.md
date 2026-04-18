@@ -12,7 +12,7 @@
 
 ### Weather Signal
 
-- [ ] **WEAT-01**: Operator can fetch NOAA forecast data for each candidate weather market using the correct location and resolution window.
+- [x] **WEAT-01**: Operator can fetch NOAA forecast data for each candidate weather market using the correct location and resolution window.
 - [ ] **WEAT-02**: Operator can calculate the implied weather-side edge versus Polymarket pricing using explicit strategy rules.
 - [ ] **WEAT-03**: Operator can inspect the forecast inputs and computed edge that caused a signal to fire or be rejected.
 
@@ -72,7 +72,7 @@
 |-------------|-------|--------|
 | DISC-01 | Phase 1 | Pending |
 | DISC-02 | Phase 1 | Pending |
-| WEAT-01 | Phase 2 | Pending |
+| WEAT-01 | Phase 2 | Complete |
 | WEAT-02 | Phase 2 | Pending |
 | WEAT-03 | Phase 2 | Pending |
 | RISK-01 | Phase 3 | Pending |
