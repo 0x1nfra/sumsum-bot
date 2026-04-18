@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-noaa-signal-engine-01-PLAN.md
-last_updated: "2026-04-18T11:39:29.988Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-04-18T11:45:34.990Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-17)
 ## Current Position
 
 Phase: 02 (noaa-signal-engine) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100% of completed planned work so far
 - Trend: Phase 1 complete, Phase 2 not started
 
 | Phase 02-noaa-signal-engine P01 | 7min | 3 tasks | 10 files |
+| Phase 02-noaa-signal-engine P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 02-noaa-signal-engine]: Supported NOAA coverage stays explicit and config-backed; unsupported cities raise noaa_city_unsupported.
 - [Phase 02-noaa-signal-engine]: Forecast freshness is evaluated against the contract window boundary, not wall-clock runtime.
 - [Phase 02-noaa-signal-engine]: Candidate persistence now carries explicit local market-window fields for downstream signal evaluation.
+- [Phase 02-noaa-signal-engine]: Temperature contracts use threshold-margin bands keyed off the most favorable overlapping forecast value.
+- [Phase 02-noaa-signal-engine]: Precipitation contracts derive YES probability from overlapping PoP values, with QPF acting as measurable-precipitation confirmation.
+- [Phase 02-noaa-signal-engine]: Signal acceptance is determined only by derived_no_probability - no_price exceeding minimum_edge_to_trade.
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:39:29.985Z
-Stopped at: Completed 02-noaa-signal-engine-01-PLAN.md
+Last session: 2026-04-18T11:45:34.988Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
