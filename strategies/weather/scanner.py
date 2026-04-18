@@ -52,6 +52,7 @@ def apply_candidate_filters(
         title=candidate.title,
         status=CandidateStatus.REJECTED,
         location=candidate.location,
+        contract_family=candidate.contract_family,
         metric=candidate.metric,
         region=candidate.region,
         threshold=candidate.threshold,
@@ -59,6 +60,10 @@ def apply_candidate_filters(
         no_price=candidate.no_price,
         liquidity_usd=candidate.liquidity_usd,
         resolution_hours=candidate.resolution_hours,
+        market_date_local=candidate.market_date_local,
+        market_window_start_local=candidate.market_window_start_local,
+        market_window_end_local=candidate.market_window_end_local,
+        location_key=candidate.location_key,
         normalization_status=candidate.normalization_status or candidate.status,
         rejection_reasons=tuple(rejection_reasons),
     )

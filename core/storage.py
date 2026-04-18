@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sqlite3
 from typing import Iterable
 
 from config.settings import ScanSettings, get_settings
-from core.models import CandidateRecord, CandidateStatus, ScanResultMetadata
+from core.models import (
+    CandidateRecord,
+    CandidateStatus,
+    ScanResultMetadata,
+    SignalEvaluationRecord,
+    SignalEvaluationStatus,
+)
 
 
 def _candidate_from_market(market: dict, status: CandidateStatus, reasons: Iterable[str] = ()) -> CandidateRecord:
@@ -16,6 +23,7 @@ def _candidate_from_market(market: dict, status: CandidateStatus, reasons: Itera
         title=market["title"],
         status=status,
         location=market.get("expected_location") or "unknown",
+        contract_family=market.get("expected_metric"),
         metric=market.get("expected_metric"),
         region=market.get("expected_region"),
         threshold=market.get("expected_threshold"),
@@ -66,6 +74,7 @@ class CandidateStorage:
                 CREATE TABLE IF NOT EXISTS accepted_candidates (
                     market_id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
+                    contract_family TEXT,
                     metric TEXT,
                     location TEXT NOT NULL,
                     region TEXT,
@@ -73,7 +82,11 @@ class CandidateStorage:
                     unit TEXT,
                     no_price REAL,
                     liquidity_usd REAL,
-                    resolution_hours INTEGER
+                    resolution_hours INTEGER,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    location_key TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS review_candidates (
@@ -105,14 +118,52 @@ class CandidateStorage:
                     no_price REAL,
                     liquidity_usd REAL,
                     resolution_hours INTEGER,
+                    contract_family TEXT,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    location_key TEXT,
                     normalization_status TEXT NOT NULL,
                     filter_status TEXT NOT NULL,
                     primary_reason TEXT,
                     reasons_csv TEXT NOT NULL,
                     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
                 );
+
+                CREATE TABLE IF NOT EXISTS signal_evaluations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    market_id TEXT NOT NULL,
+                    scan_run_id INTEGER,
+                    location TEXT NOT NULL,
+                    mapping_city_key TEXT NOT NULL,
+                    contract_family TEXT,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    forecast_update_time TEXT,
+                    forecast_source_url TEXT,
+                    no_price REAL NOT NULL,
+                    derived_yes_probability REAL,
+                    derived_no_probability REAL,
+                    edge_against_no_price REAL,
+                    decision_reason TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
+            self._ensure_column(connection, "accepted_candidates", "contract_family", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_date_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_window_start_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_window_end_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "location_key", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "contract_family", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_date_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_window_start_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_window_end_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "location_key", "TEXT")
 
     def save_scan_run(self, metadata: ScanResultMetadata) -> int:
         self.bootstrap()
@@ -158,12 +209,71 @@ class CandidateStorage:
 
         return scan_run_id
 
+    def persist_signal_evaluations(
+        self,
+        source: str,
+        evaluations: Iterable[SignalEvaluationRecord],
+    ) -> int:
+        self.bootstrap()
+        evaluation_list = list(evaluations)
+        with self.connect() as connection:
+            for evaluation in evaluation_list:
+                self._insert_signal_evaluation(connection, source, evaluation)
+            connection.commit()
+        return len(evaluation_list)
+
+    def list_signal_evaluations(
+        self,
+        market_id: str | None = None,
+    ) -> list[SignalEvaluationRecord]:
+        self.bootstrap()
+        query = """
+            SELECT market_id, scan_run_id, location, mapping_city_key, contract_family,
+                   market_date_local, market_window_start_local, market_window_end_local,
+                   forecast_update_time, forecast_source_url, no_price,
+                   derived_yes_probability, derived_no_probability, edge_against_no_price,
+                   decision_reason, status, evidence_json
+            FROM signal_evaluations
+        """
+        params: tuple[object, ...] = ()
+        if market_id is not None:
+            query += " WHERE market_id = ?"
+            params = (market_id,)
+        query += " ORDER BY market_id, id"
+
+        with self.connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+
+        return [
+            SignalEvaluationRecord(
+                market_id=row["market_id"],
+                scan_run_id=row["scan_run_id"],
+                location=row["location"],
+                mapping_city_key=row["mapping_city_key"],
+                contract_family=row["contract_family"],
+                market_date_local=row["market_date_local"],
+                market_window_start_local=row["market_window_start_local"],
+                market_window_end_local=row["market_window_end_local"],
+                forecast_update_time=row["forecast_update_time"],
+                forecast_source_url=row["forecast_source_url"],
+                no_price=float(row["no_price"]),
+                derived_yes_probability=row["derived_yes_probability"],
+                derived_no_probability=row["derived_no_probability"],
+                edge_against_no_price=row["edge_against_no_price"],
+                decision_reason=row["decision_reason"],
+                status=SignalEvaluationStatus(row["status"]),
+                evidence=json.loads(row["evidence_json"]),
+            )
+            for row in rows
+        ]
+
     def list_candidates(self, status: CandidateStatus) -> list[CandidateRecord]:
         self.bootstrap()
         if status is CandidateStatus.APPROVED:
             query = """
                 SELECT market_id, title, metric, location, region, threshold_value, unit,
-                       no_price, liquidity_usd, resolution_hours
+                       no_price, liquidity_usd, resolution_hours, contract_family,
+                       market_date_local, market_window_start_local, market_window_end_local, location_key
                 FROM accepted_candidates ORDER BY market_id
             """
         elif status is CandidateStatus.REVIEW:
@@ -189,6 +299,7 @@ class CandidateStorage:
                         title=row["title"],
                         status=status,
                         location=row["location"],
+                        contract_family=row["contract_family"] or row["metric"],
                         metric=row["metric"],
                         region=row["region"],
                         threshold=row["threshold_value"],
@@ -196,6 +307,10 @@ class CandidateStorage:
                         no_price=row["no_price"],
                         liquidity_usd=row["liquidity_usd"],
                         resolution_hours=row["resolution_hours"],
+                        market_date_local=row["market_date_local"],
+                        market_window_start_local=row["market_window_start_local"],
+                        market_window_end_local=row["market_window_end_local"],
+                        location_key=row["location_key"],
                         normalization_status=status,
                     )
                 )
@@ -227,9 +342,10 @@ class CandidateStorage:
             """
             INSERT INTO scan_candidates (
                 scan_run_id, market_id, title, location, metric, region, threshold_value, unit,
-                no_price, liquidity_usd, resolution_hours, normalization_status, filter_status,
-                primary_reason, reasons_csv
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                no_price, liquidity_usd, resolution_hours, contract_family, market_date_local,
+                market_window_start_local, market_window_end_local, location_key,
+                normalization_status, filter_status, primary_reason, reasons_csv
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 scan_run_id,
@@ -243,6 +359,11 @@ class CandidateStorage:
                 candidate.no_price,
                 candidate.liquidity_usd,
                 candidate.resolution_hours,
+                candidate.contract_family or candidate.metric,
+                candidate.market_date_local,
+                candidate.market_window_start_local,
+                candidate.market_window_end_local,
+                candidate.location_key,
                 normalization_status,
                 candidate.status.value,
                 primary_reason,
@@ -257,18 +378,25 @@ class CandidateStorage:
     ) -> None:
         reasons_csv = ",".join(candidate.rejection_reasons)
         primary_reason = candidate.rejection_reasons[0] if candidate.rejection_reasons else ""
+        for table_name in ("accepted_candidates", "review_candidates", "rejected_candidates"):
+            connection.execute(
+                f"DELETE FROM {table_name} WHERE market_id = ?",
+                (candidate.market_id,),
+            )
 
         if candidate.status is CandidateStatus.APPROVED:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO accepted_candidates (
-                    market_id, title, metric, location, region, threshold_value, unit,
-                    no_price, liquidity_usd, resolution_hours
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    market_id, title, contract_family, metric, location, region, threshold_value, unit,
+                    no_price, liquidity_usd, resolution_hours, market_date_local,
+                    market_window_start_local, market_window_end_local, location_key
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     candidate.market_id,
                     candidate.title,
+                    candidate.contract_family or candidate.metric,
                     candidate.metric,
                     candidate.location,
                     candidate.region,
@@ -277,6 +405,10 @@ class CandidateStorage:
                     candidate.no_price,
                     candidate.liquidity_usd,
                     candidate.resolution_hours,
+                    candidate.market_date_local,
+                    candidate.market_window_start_local,
+                    candidate.market_window_end_local,
+                    candidate.location_key,
                 ),
             )
             return
@@ -298,6 +430,59 @@ class CandidateStorage:
                 candidate.location,
                 primary_reason,
                 reasons_csv,
+            ),
+        )
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        column_type: str,
+    ) -> None:
+        columns = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        if column_name in columns:
+            return
+        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+
+    def _insert_signal_evaluation(
+        self,
+        connection: sqlite3.Connection,
+        source: str,
+        evaluation: SignalEvaluationRecord,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO signal_evaluations (
+                source, market_id, scan_run_id, location, mapping_city_key, contract_family,
+                market_date_local, market_window_start_local, market_window_end_local,
+                forecast_update_time, forecast_source_url, no_price,
+                derived_yes_probability, derived_no_probability, edge_against_no_price,
+                decision_reason, status, evidence_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source,
+                evaluation.market_id,
+                evaluation.scan_run_id,
+                evaluation.location,
+                evaluation.mapping_city_key,
+                evaluation.contract_family,
+                evaluation.market_date_local,
+                evaluation.market_window_start_local,
+                evaluation.market_window_end_local,
+                evaluation.forecast_update_time,
+                evaluation.forecast_source_url,
+                evaluation.no_price,
+                evaluation.derived_yes_probability,
+                evaluation.derived_no_probability,
+                evaluation.edge_against_no_price,
+                evaluation.decision_reason,
+                evaluation.status.value,
+                json.dumps(evaluation.evidence, sort_keys=True),
             ),
         )
 

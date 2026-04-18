@@ -12,12 +12,12 @@ Prove that the weather strategy can preserve capital, recover from drawdowns, an
 
 ### Validated
 
-(None yet — ship to validate)
+- Weather-market edge can be computed from NOAA forecast data with explicit entry filters.
+  Validated in Phase 02: NOAA Signal Engine.
 
 ### Active
 
 - [ ] Scan Polymarket weather markets continuously and identify candidate opportunities.
-- [ ] Compute weather-market edge from NOAA forecast data with explicit entry filters.
 - [ ] Apply disciplined bankroll management, sizing, and kill switches during paper trading.
 - [ ] Run a 24/7 paper trader that records every simulated trade and portfolio change.
 - [ ] Provide a dashboard and logs that make forward-test performance and failure modes easy to inspect.
@@ -32,7 +32,7 @@ Prove that the weather strategy can preserve capital, recover from drawdowns, an
 
 ## Context
 
-- The current repository contains product direction in `docs/prd.md` and `docs/strategy.md`, but no executable bot implementation yet.
+- The repository now contains executable implementation through Phase 02: market discovery, NOAA signal evaluation, and append-only signal persistence.
 - The original concept covered weather, BTC, sports, and arbitrage. The scoped milestone is narrower: weather only until the strategy shows paper-trading profitability.
 - Backtesting is useful for shaping the strategy, but the gating validation is a 2-week paper-trading run measured against starting capital and drawdown recovery behavior.
 - The operator is a solo developer/trader optimizing for low capital, low monthly cost, and fast iteration.
@@ -76,4 +76,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 after initialization*
+*Last updated: 2026-04-18 after Phase 02 completion*

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+import pytest
+
 from config.settings import ScanSettings
 from core.clob_client import PolymarketDiscoveryClient
 from core.models import CandidateStatus
@@ -44,11 +48,21 @@ def test_filter_rules_reject_candidate_when_price_is_above_cap(weather_markets: 
     assert rejected[0].rejection_reasons == ("price_above_ceiling",)
 
 
-def test_filter_rules_reject_candidate_when_resolution_window_is_too_wide(weather_markets: list[dict]) -> None:
+def test_filter_rules_reject_candidate_when_resolution_window_is_too_wide(
+    weather_markets: list[dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            current = cls(2026, 4, 18, 18, 30, tzinfo=UTC)
+            return current if tz is None else current.astimezone(tz)
+
+    monkeypatch.setattr("strategies.weather.types.datetime", FrozenDateTime)
     market = next(market for market in weather_markets if market["id"] == "wx-temp-phx-001")
     approved, review, rejected = _scan_single_market(
         market,
-        ScanSettings(max_resolution_hours=24),
+        ScanSettings(max_resolution_hours=11),
     )
 
     assert approved == ()
