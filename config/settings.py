@@ -16,6 +16,10 @@ class ScanSettings:
     max_entry_price: float = 0.85
     max_resolution_hours: int = 72
     scan_interval_seconds: int = 300
+    noaa_user_agent: str = "(sumsum-bot, contact@example.com)"
+    noaa_request_timeout_seconds: float = 10.0
+    noaa_max_data_age_minutes: int = 180
+    minimum_edge_to_trade: float = 0.10
 
     @property
     def max_no_price(self) -> float:
@@ -58,6 +62,25 @@ def load_settings(
             raw_env.get(
                 "SCAN_INTERVAL_SECONDS",
                 str(ScanSettings.scan_interval_seconds),
+            )
+        ),
+        noaa_user_agent=raw_env.get("NOAA_USER_AGENT", ScanSettings.noaa_user_agent),
+        noaa_request_timeout_seconds=float(
+            raw_env.get(
+                "NOAA_REQUEST_TIMEOUT_SECONDS",
+                str(ScanSettings.noaa_request_timeout_seconds),
+            )
+        ),
+        noaa_max_data_age_minutes=int(
+            raw_env.get(
+                "NOAA_MAX_DATA_AGE_MINUTES",
+                str(ScanSettings.noaa_max_data_age_minutes),
+            )
+        ),
+        minimum_edge_to_trade=float(
+            raw_env.get(
+                "MINIMUM_EDGE_TO_TRADE",
+                str(ScanSettings.minimum_edge_to_trade),
             )
         ),
     )

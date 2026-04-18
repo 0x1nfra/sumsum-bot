@@ -41,6 +41,7 @@ class CandidateRecord:
     title: str
     status: CandidateStatus
     location: str
+    contract_family: str | None = None
     metric: str | None = None
     region: str | None = None
     threshold: float | None = None
@@ -48,5 +49,9 @@ class CandidateRecord:
     no_price: float | None = None
     liquidity_usd: float | None = None
     resolution_hours: int | None = None
+    market_date_local: str | None = None
+    market_window_start_local: str | None = None
+    market_window_end_local: str | None = None
+    location_key: str | None = None
     normalization_status: CandidateStatus | None = None
     rejection_reasons: tuple[str, ...] = field(default_factory=tuple)

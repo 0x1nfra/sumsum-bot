@@ -36,3 +36,19 @@ def test_settings_allow_environment_style_overrides() -> None:
 def test_settings_raise_for_invalid_numeric_overrides() -> None:
     with pytest.raises(ValueError):
         load_settings({"MIN_MARKET_LIQUIDITY_USD": "five-thousand"})
+
+
+def test_scan_settings_loads_noaa_fields_from_env() -> None:
+    settings = load_settings(
+        {
+            "NOAA_USER_AGENT": "(sumsum-bot, ops@example.com)",
+            "NOAA_REQUEST_TIMEOUT_SECONDS": "4.5",
+            "NOAA_MAX_DATA_AGE_MINUTES": "90",
+            "MINIMUM_EDGE_TO_TRADE": "0.17",
+        }
+    )
+
+    assert settings.noaa_user_agent == "(sumsum-bot, ops@example.com)"
+    assert settings.noaa_request_timeout_seconds == pytest.approx(4.5)
+    assert settings.noaa_max_data_age_minutes == 90
+    assert settings.minimum_edge_to_trade == pytest.approx(0.17)

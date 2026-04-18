@@ -16,6 +16,7 @@ def _candidate_from_market(market: dict, status: CandidateStatus, reasons: Itera
         title=market["title"],
         status=status,
         location=market.get("expected_location") or "unknown",
+        contract_family=market.get("expected_metric"),
         metric=market.get("expected_metric"),
         region=market.get("expected_region"),
         threshold=market.get("expected_threshold"),
@@ -66,6 +67,7 @@ class CandidateStorage:
                 CREATE TABLE IF NOT EXISTS accepted_candidates (
                     market_id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
+                    contract_family TEXT,
                     metric TEXT,
                     location TEXT NOT NULL,
                     region TEXT,
@@ -73,7 +75,11 @@ class CandidateStorage:
                     unit TEXT,
                     no_price REAL,
                     liquidity_usd REAL,
-                    resolution_hours INTEGER
+                    resolution_hours INTEGER,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    location_key TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS review_candidates (
@@ -105,6 +111,11 @@ class CandidateStorage:
                     no_price REAL,
                     liquidity_usd REAL,
                     resolution_hours INTEGER,
+                    contract_family TEXT,
+                    market_date_local TEXT,
+                    market_window_start_local TEXT,
+                    market_window_end_local TEXT,
+                    location_key TEXT,
                     normalization_status TEXT NOT NULL,
                     filter_status TEXT NOT NULL,
                     primary_reason TEXT,
@@ -113,6 +124,16 @@ class CandidateStorage:
                 );
                 """
             )
+            self._ensure_column(connection, "accepted_candidates", "contract_family", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_date_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_window_start_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "market_window_end_local", "TEXT")
+            self._ensure_column(connection, "accepted_candidates", "location_key", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "contract_family", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_date_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_window_start_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "market_window_end_local", "TEXT")
+            self._ensure_column(connection, "scan_candidates", "location_key", "TEXT")
 
     def save_scan_run(self, metadata: ScanResultMetadata) -> int:
         self.bootstrap()
@@ -163,7 +184,8 @@ class CandidateStorage:
         if status is CandidateStatus.APPROVED:
             query = """
                 SELECT market_id, title, metric, location, region, threshold_value, unit,
-                       no_price, liquidity_usd, resolution_hours
+                       no_price, liquidity_usd, resolution_hours, contract_family,
+                       market_date_local, market_window_start_local, market_window_end_local, location_key
                 FROM accepted_candidates ORDER BY market_id
             """
         elif status is CandidateStatus.REVIEW:
@@ -189,6 +211,7 @@ class CandidateStorage:
                         title=row["title"],
                         status=status,
                         location=row["location"],
+                        contract_family=row["contract_family"] or row["metric"],
                         metric=row["metric"],
                         region=row["region"],
                         threshold=row["threshold_value"],
@@ -196,6 +219,10 @@ class CandidateStorage:
                         no_price=row["no_price"],
                         liquidity_usd=row["liquidity_usd"],
                         resolution_hours=row["resolution_hours"],
+                        market_date_local=row["market_date_local"],
+                        market_window_start_local=row["market_window_start_local"],
+                        market_window_end_local=row["market_window_end_local"],
+                        location_key=row["location_key"],
                         normalization_status=status,
                     )
                 )
@@ -227,9 +254,10 @@ class CandidateStorage:
             """
             INSERT INTO scan_candidates (
                 scan_run_id, market_id, title, location, metric, region, threshold_value, unit,
-                no_price, liquidity_usd, resolution_hours, normalization_status, filter_status,
-                primary_reason, reasons_csv
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                no_price, liquidity_usd, resolution_hours, contract_family, market_date_local,
+                market_window_start_local, market_window_end_local, location_key,
+                normalization_status, filter_status, primary_reason, reasons_csv
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 scan_run_id,
@@ -243,6 +271,11 @@ class CandidateStorage:
                 candidate.no_price,
                 candidate.liquidity_usd,
                 candidate.resolution_hours,
+                candidate.contract_family or candidate.metric,
+                candidate.market_date_local,
+                candidate.market_window_start_local,
+                candidate.market_window_end_local,
+                candidate.location_key,
                 normalization_status,
                 candidate.status.value,
                 primary_reason,
@@ -262,13 +295,15 @@ class CandidateStorage:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO accepted_candidates (
-                    market_id, title, metric, location, region, threshold_value, unit,
-                    no_price, liquidity_usd, resolution_hours
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    market_id, title, contract_family, metric, location, region, threshold_value, unit,
+                    no_price, liquidity_usd, resolution_hours, market_date_local,
+                    market_window_start_local, market_window_end_local, location_key
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     candidate.market_id,
                     candidate.title,
+                    candidate.contract_family or candidate.metric,
                     candidate.metric,
                     candidate.location,
                     candidate.region,
@@ -277,6 +312,10 @@ class CandidateStorage:
                     candidate.no_price,
                     candidate.liquidity_usd,
                     candidate.resolution_hours,
+                    candidate.market_date_local,
+                    candidate.market_window_start_local,
+                    candidate.market_window_end_local,
+                    candidate.location_key,
                 ),
             )
             return
@@ -300,6 +339,21 @@ class CandidateStorage:
                 reasons_csv,
             ),
         )
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        column_type: str,
+    ) -> None:
+        columns = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        if column_name in columns:
+            return
+        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
 
 
 def bootstrap_storage(database_path: Path) -> sqlite3.Connection:

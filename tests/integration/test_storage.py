@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.storage import bootstrap_storage, save_approved_candidate, save_rejected_candidate
+from core.models import CandidateRecord, CandidateStatus
+from core.storage import CandidateStorage, bootstrap_storage, save_approved_candidate, save_rejected_candidate
 
 
 def test_storage_bootstrap_creates_phase_one_candidate_tables(temp_sqlite_db_path: Path) -> None:
@@ -69,3 +70,38 @@ def test_storage_persists_review_and_rejected_rows_with_reason(
             rejected_market["expected_rejection_reason"],
         ),
     ]
+
+
+def test_storage_round_trips_contract_family_and_local_window_fields(
+    temp_sqlite_db_path: Path,
+) -> None:
+    connection = bootstrap_storage(temp_sqlite_db_path)
+    storage_path = Path(connection.execute("PRAGMA database_list").fetchone()["file"])
+    storage = CandidateStorage(storage_path)
+    candidate = CandidateRecord(
+        market_id="wx-temp-phx-001",
+        title="Will Phoenix hit 110F or higher on April 18?",
+        status=CandidateStatus.APPROVED,
+        location="Phoenix",
+        contract_family="temperature",
+        metric="temperature",
+        threshold=110.0,
+        unit="F",
+        no_price=0.42,
+        liquidity_usd=8500.0,
+        resolution_hours=36,
+        market_date_local="2026-04-18",
+        market_window_start_local="2026-04-18T00:00:00-07:00",
+        market_window_end_local="2026-04-19T00:00:00-07:00",
+        location_key="phoenix",
+        normalization_status=CandidateStatus.APPROVED,
+    )
+
+    storage.save_candidate(candidate)
+    [stored] = storage.list_candidates(CandidateStatus.APPROVED)
+
+    assert stored.contract_family == "temperature"
+    assert stored.market_date_local == "2026-04-18"
+    assert stored.market_window_start_local == "2026-04-18T00:00:00-07:00"
+    assert stored.market_window_end_local == "2026-04-19T00:00:00-07:00"
+    assert stored.location_key == "phoenix"
