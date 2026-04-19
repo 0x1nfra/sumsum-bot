@@ -88,6 +88,7 @@ class SignalEvaluationRecord:
     decision_reason: str
     status: SignalEvaluationStatus
     evidence: dict[str, object] = field(default_factory=dict)
+    signal_evaluation_id: int | None = None
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,8 @@ from config.settings import ScanSettings, get_settings
 from core.models import (
     CandidateRecord,
     CandidateStatus,
+    RiskDecisionRecord,
+    RiskDecisionStatus,
     ScanResultMetadata,
     SignalEvaluationRecord,
     SignalEvaluationStatus,
@@ -152,6 +154,25 @@ class CandidateStorage:
                     evidence_json TEXT NOT NULL,
                     evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
+
+                CREATE TABLE IF NOT EXISTS risk_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    signal_evaluation_id INTEGER,
+                    market_id TEXT NOT NULL,
+                    window_key TEXT NOT NULL,
+                    decision_status TEXT NOT NULL,
+                    decision_reason TEXT NOT NULL,
+                    triggered_rule_codes_csv TEXT NOT NULL,
+                    current_bankroll_usd REAL NOT NULL,
+                    peak_bankroll_usd REAL NOT NULL,
+                    open_exposure_usd REAL NOT NULL,
+                    window_exposure_usd REAL NOT NULL,
+                    proposed_stake_usd REAL NOT NULL,
+                    allowed_stake_usd REAL NOT NULL,
+                    evidence_json TEXT NOT NULL,
+                    evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
             self._ensure_column(connection, "accepted_candidates", "contract_family", "TEXT")
@@ -228,7 +249,7 @@ class CandidateStorage:
     ) -> list[SignalEvaluationRecord]:
         self.bootstrap()
         query = """
-            SELECT market_id, scan_run_id, location, mapping_city_key, contract_family,
+            SELECT id, market_id, scan_run_id, location, mapping_city_key, contract_family,
                    market_date_local, market_window_start_local, market_window_end_local,
                    forecast_update_time, forecast_source_url, no_price,
                    derived_yes_probability, derived_no_probability, edge_against_no_price,
@@ -263,6 +284,63 @@ class CandidateStorage:
                 decision_reason=row["decision_reason"],
                 status=SignalEvaluationStatus(row["status"]),
                 evidence=json.loads(row["evidence_json"]),
+                signal_evaluation_id=int(row["id"]),
+            )
+            for row in rows
+        ]
+
+    def persist_risk_decisions(
+        self,
+        source: str,
+        decisions: Iterable[RiskDecisionRecord],
+    ) -> int:
+        self.bootstrap()
+        decision_list = list(decisions)
+        with self.connect() as connection:
+            for decision in decision_list:
+                self._insert_risk_decision(connection, source, decision)
+            connection.commit()
+        return len(decision_list)
+
+    def list_risk_decisions(
+        self,
+        market_id: str | None = None,
+    ) -> list[RiskDecisionRecord]:
+        self.bootstrap()
+        query = """
+            SELECT signal_evaluation_id, market_id, window_key, decision_status, decision_reason,
+                   triggered_rule_codes_csv, current_bankroll_usd, peak_bankroll_usd,
+                   open_exposure_usd, window_exposure_usd, proposed_stake_usd,
+                   allowed_stake_usd, evidence_json, evaluated_at
+            FROM risk_decisions
+        """
+        params: tuple[object, ...] = ()
+        if market_id is not None:
+            query += " WHERE market_id = ?"
+            params = (market_id,)
+        query += " ORDER BY id"
+
+        with self.connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+
+        return [
+            RiskDecisionRecord(
+                signal_evaluation_id=row["signal_evaluation_id"],
+                market_id=row["market_id"],
+                window_key=row["window_key"],
+                decision_status=RiskDecisionStatus(row["decision_status"]),
+                decision_reason=row["decision_reason"],
+                triggered_rule_codes=tuple(
+                    filter(None, str(row["triggered_rule_codes_csv"]).split(","))
+                ),
+                current_bankroll_usd=float(row["current_bankroll_usd"]),
+                peak_bankroll_usd=float(row["peak_bankroll_usd"]),
+                open_exposure_usd=float(row["open_exposure_usd"]),
+                window_exposure_usd=float(row["window_exposure_usd"]),
+                proposed_stake_usd=float(row["proposed_stake_usd"]),
+                allowed_stake_usd=float(row["allowed_stake_usd"]),
+                evidence=json.loads(row["evidence_json"]),
+                evaluated_at=row["evaluated_at"],
             )
             for row in rows
         ]
@@ -483,6 +561,39 @@ class CandidateStorage:
                 evaluation.decision_reason,
                 evaluation.status.value,
                 json.dumps(evaluation.evidence, sort_keys=True),
+            ),
+        )
+
+    def _insert_risk_decision(
+        self,
+        connection: sqlite3.Connection,
+        source: str,
+        decision: RiskDecisionRecord,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO risk_decisions (
+                source, signal_evaluation_id, market_id, window_key, decision_status,
+                decision_reason, triggered_rule_codes_csv, current_bankroll_usd,
+                peak_bankroll_usd, open_exposure_usd, window_exposure_usd,
+                proposed_stake_usd, allowed_stake_usd, evidence_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source,
+                decision.signal_evaluation_id,
+                decision.market_id,
+                decision.window_key,
+                decision.decision_status.value,
+                decision.decision_reason,
+                ",".join(decision.triggered_rule_codes),
+                decision.current_bankroll_usd,
+                decision.peak_bankroll_usd,
+                decision.open_exposure_usd,
+                decision.window_exposure_usd,
+                decision.proposed_stake_usd,
+                decision.allowed_stake_usd,
+                json.dumps(decision.evidence, sort_keys=True),
             ),
         )
 
