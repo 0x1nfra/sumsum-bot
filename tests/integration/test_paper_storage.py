@@ -146,3 +146,16 @@ def test_paper_storage_round_trips_position_event_and_bankroll_snapshots(
 
     open_positions = storage.list_open_paper_positions()
     assert open_positions == []
+    assert [record.status for record in storage.list_paper_positions()] == [
+        PaperPositionStatus.RESOLVED,
+    ]
+    assert [event.event_type for event in storage.list_paper_trade_events("paper-wx-temp-phx-001")] == [
+        "paper_entry",
+        "paper_open",
+        "paper_resolution",
+    ]
+    assert [snapshot.snapshot_reason for snapshot in storage.list_bankroll_snapshots()] == [
+        "bankroll_snapshot",
+        "bankroll_snapshot",
+        "bankroll_snapshot",
+    ]
