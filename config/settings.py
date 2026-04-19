@@ -26,6 +26,9 @@ class ScanSettings:
     global_max_open_exposure_pct: float = 0.30
     window_max_open_exposure_pct: float = 0.15
     minimum_trade_stake_usd: float = 1.00
+    paper_starting_bankroll_usd: float = 100.0
+    paper_poll_interval_seconds: int = 300
+    paper_resolution_poll_seconds: int = 300
 
     @property
     def max_no_price(self) -> float:
@@ -123,6 +126,24 @@ def load_settings(
             raw_env.get(
                 "MINIMUM_TRADE_STAKE_USD",
                 str(ScanSettings.minimum_trade_stake_usd),
+            )
+        ),
+        paper_starting_bankroll_usd=float(
+            raw_env.get(
+                "PAPER_STARTING_BANKROLL_USD",
+                str(ScanSettings.paper_starting_bankroll_usd),
+            )
+        ),
+        paper_poll_interval_seconds=int(
+            raw_env.get(
+                "PAPER_POLL_INTERVAL_SECONDS",
+                str(ScanSettings.paper_poll_interval_seconds),
+            )
+        ),
+        paper_resolution_poll_seconds=int(
+            raw_env.get(
+                "PAPER_RESOLUTION_POLL_SECONDS",
+                str(ScanSettings.paper_resolution_poll_seconds),
             )
         ),
     )
