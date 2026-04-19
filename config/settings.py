@@ -20,6 +20,12 @@ class ScanSettings:
     noaa_request_timeout_seconds: float = 10.0
     noaa_max_data_age_minutes: int = 180
     minimum_edge_to_trade: float = 0.10
+    kelly_fraction: float = 0.25
+    probability_haircut_pct: float = 0.05
+    per_trade_exposure_cap_pct: float = 0.05
+    global_max_open_exposure_pct: float = 0.30
+    window_max_open_exposure_pct: float = 0.15
+    minimum_trade_stake_usd: float = 1.00
 
     @property
     def max_no_price(self) -> float:
@@ -81,6 +87,42 @@ def load_settings(
             raw_env.get(
                 "MINIMUM_EDGE_TO_TRADE",
                 str(ScanSettings.minimum_edge_to_trade),
+            )
+        ),
+        kelly_fraction=float(
+            raw_env.get(
+                "KELLY_FRACTION",
+                str(ScanSettings.kelly_fraction),
+            )
+        ),
+        probability_haircut_pct=float(
+            raw_env.get(
+                "PROBABILITY_HAIRCUT_PCT",
+                str(ScanSettings.probability_haircut_pct),
+            )
+        ),
+        per_trade_exposure_cap_pct=float(
+            raw_env.get(
+                "PER_TRADE_EXPOSURE_CAP_PCT",
+                str(ScanSettings.per_trade_exposure_cap_pct),
+            )
+        ),
+        global_max_open_exposure_pct=float(
+            raw_env.get(
+                "GLOBAL_MAX_OPEN_EXPOSURE_PCT",
+                str(ScanSettings.global_max_open_exposure_pct),
+            )
+        ),
+        window_max_open_exposure_pct=float(
+            raw_env.get(
+                "WINDOW_MAX_OPEN_EXPOSURE_PCT",
+                str(ScanSettings.window_max_open_exposure_pct),
+            )
+        ),
+        minimum_trade_stake_usd=float(
+            raw_env.get(
+                "MINIMUM_TRADE_STAKE_USD",
+                str(ScanSettings.minimum_trade_stake_usd),
             )
         ),
     )
