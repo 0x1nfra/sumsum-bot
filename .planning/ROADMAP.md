@@ -79,9 +79,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Implement the paper execution engine and trade lifecycle state machine.
-- [ ] 04-02: Build scheduling/runtime orchestration for continuous scanning and simulated execution.
-- [ ] 04-03: Add forward-test performance calculations over bankroll history and resolved trades.
+- [ ] 04-01-PLAN.md — Implement the paper execution engine and trade lifecycle state machine.
+- [ ] 04-02-PLAN.md — Build scheduling/runtime orchestration for continuous scanning and simulated execution.
+- [ ] 04-03-PLAN.md — Add forward-test performance calculations over bankroll history and resolved trades.
 
 ### Phase 5: Dashboard and Logging
 **Goal**: Make the simulation observable through a usable dashboard and comprehensive event logs.
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Market Discovery Foundation | 6/6 | Complete | 2026-04-17 |
 | 2. NOAA Signal Engine | 3/3 | Complete | 2026-04-18 |
-| 3. Risk and Portfolio Controls | 0/2 | Not started | - |
+| 3. Risk and Portfolio Controls | 2/2 | Complete | 2026-04-19 |
 | 4. Paper Trading Runtime | 0/3 | Not started | - |
 | 5. Dashboard and Logging | 0/3 | Not started | - |
 | 6. 24/7 Deployment Readiness | 0/3 | Not started | - |
