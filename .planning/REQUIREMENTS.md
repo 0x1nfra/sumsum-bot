@@ -18,9 +18,9 @@
 
 ### Risk and Sizing
 
-- [ ] **RISK-01**: Operator can apply bankroll-based position sizing using the configured Kelly fraction and per-trade exposure caps.
-- [ ] **RISK-02**: Operator can enforce kill switches for conditions such as max drawdown, loss streaks, or invalid market conditions.
-- [ ] **RISK-03**: Operator can review why a candidate trade was blocked by risk controls.
+- [x] **RISK-01**: Operator can apply bankroll-based position sizing using the configured Kelly fraction and per-trade exposure caps.
+- [x] **RISK-02**: Operator can enforce kill switches for conditions such as max drawdown, loss streaks, or invalid market conditions.
+- [x] **RISK-03**: Operator can review why a candidate trade was blocked by risk controls.
 
 ### Paper Trading
 
@@ -75,9 +75,9 @@
 | WEAT-01 | Phase 2 | Complete |
 | WEAT-02 | Phase 2 | Complete |
 | WEAT-03 | Phase 2 | Complete |
-| RISK-01 | Phase 3 | Pending |
-| RISK-02 | Phase 3 | Pending |
-| RISK-03 | Phase 3 | Pending |
+| RISK-01 | Phase 3 | Complete |
+| RISK-02 | Phase 3 | Complete |
+| RISK-03 | Phase 3 | Complete |
 | PAPR-01 | Phase 4 | Pending |
 | PAPR-02 | Phase 4 | Pending |
 | PAPR-03 | Phase 4 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-04-17*
-*Last updated: 2026-04-18 after Phase 02 completion*
+*Last updated: 2026-04-19 after Phase 03 completion*

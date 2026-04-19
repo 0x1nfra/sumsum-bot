@@ -52,3 +52,23 @@ def test_scan_settings_loads_noaa_fields_from_env() -> None:
     assert settings.noaa_request_timeout_seconds == pytest.approx(4.5)
     assert settings.noaa_max_data_age_minutes == 90
     assert settings.minimum_edge_to_trade == pytest.approx(0.17)
+
+
+def test_scan_settings_loads_risk_fields_from_env() -> None:
+    settings = load_settings(
+        {
+            "KELLY_FRACTION": "0.2",
+            "PROBABILITY_HAIRCUT_PCT": "0.08",
+            "PER_TRADE_EXPOSURE_CAP_PCT": "0.04",
+            "GLOBAL_MAX_OPEN_EXPOSURE_PCT": "0.25",
+            "WINDOW_MAX_OPEN_EXPOSURE_PCT": "0.12",
+            "MINIMUM_TRADE_STAKE_USD": "2.5",
+        }
+    )
+
+    assert settings.kelly_fraction == pytest.approx(0.2)
+    assert settings.probability_haircut_pct == pytest.approx(0.08)
+    assert settings.per_trade_exposure_cap_pct == pytest.approx(0.04)
+    assert settings.global_max_open_exposure_pct == pytest.approx(0.25)
+    assert settings.window_max_open_exposure_pct == pytest.approx(0.12)
+    assert settings.minimum_trade_stake_usd == pytest.approx(2.5)

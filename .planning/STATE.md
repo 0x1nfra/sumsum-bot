@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready
-stopped_at: Phase 03 ready to start
-last_updated: "2026-04-18T12:35:35.986Z"
-last_activity: 2026-04-18
+stopped_at: Phase 03 complete
+last_updated: "2026-04-19T13:31:00.000Z"
+last_activity: 2026-04-19 -- Phase 03 completed
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 3
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Prove that the weather strategy can preserve capital, recover from drawdowns, and produce positive paper-trading returns over a 2-week forward test before any live deployment.
-**Current focus:** Phase 03 — risk-and-portfolio-controls
+**Current focus:** Phase 04 — paper-trading-runtime
 
 ## Current Position
 
-Phase: 03 (risk-and-portfolio-controls)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-18
+Phase: 04 (paper-trading-runtime)
+Plan: Ready to plan
+Status: Phase 03 complete
+Last activity: 2026-04-19 -- Phase 03 completed
 
 Progress: [██████████] 100% of completed planned work so far
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100% of completed planned work so far
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 11
 - Average duration: -
 - Total execution time: 0.0 hours
 
@@ -46,15 +46,18 @@ Progress: [██████████] 100% of completed planned work so far
 |-------|-------|-------|----------|
 | 01 | 6 | 6 | - |
 | 02 | 3 | - | - |
+| 03 | 2 | - | - |
 
 **Recent Trend:**
 
 - Last 5 plans: 01-01 through 01-05 complete
-- Trend: Phase 2 complete, Phase 3 ready to start
+- Trend: Phase 3 complete, Phase 4 ready to start
 
 | Phase 02-noaa-signal-engine P01 | 7min | 3 tasks | 10 files |
 | Phase 02-noaa-signal-engine P02 | 2min | 2 tasks | 2 files |
 | Phase 02-noaa-signal-engine P03 | 4min | 3 tasks | 5 files |
+| Phase 03-risk-and-portfolio-controls P01 | 17min | 3 tasks | 8 files |
+| Phase 03-risk-and-portfolio-controls P02 | 18min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -75,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 02-noaa-signal-engine]: SignalEngine consumes approved CandidateRecord handoff fields and never reparses raw market payloads.
 - [Phase 02-noaa-signal-engine]: Signal evaluation history is append-only in a dedicated signal_evaluations table.
 - [Phase 02-noaa-signal-engine]: NOAA failures are persisted as rejected signal rows with explicit reason codes.
+- [Phase 03-risk-and-portfolio-controls]: Kelly sizing applies an explicit probability haircut before quarter-Kelly and per-trade cap clamps.
+- [Phase 03-risk-and-portfolio-controls]: Risk decisions are append-only rows linked back to stored signal evaluations.
+- [Phase 03-risk-and-portfolio-controls]: Drawdown, cooldown, and signal-safety gates fail closed before any paper-trade lifecycle exists.
 
 ### Pending Todos
 
@@ -94,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T12:33:56Z
-Stopped at: Phase 02 verified and marked complete
-Resume file: None
+Last session: 2026-04-19T12:56:20.609Z
+Stopped at: Phase 03 complete
+Resume file: .planning/phases/03-risk-and-portfolio-controls/03-VERIFICATION.md

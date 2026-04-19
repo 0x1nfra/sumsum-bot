@@ -1,11 +1,21 @@
-"""Thin signal-evaluation orchestration over NOAA, edge math, and storage."""
+"""Thin signal-evaluation orchestration over NOAA, edge math, storage, and risk gating."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from config.settings import ScanSettings, get_settings
-from core.models import CandidateRecord, CandidateStatus, SignalEvaluationRecord, SignalEvaluationStatus
+from core.models import (
+    CandidateRecord,
+    CandidateStatus,
+    PortfolioSnapshot,
+    RiskDecisionRecord,
+    RiskDecisionStatus,
+    SignalEvaluationRecord,
+    SignalEvaluationStatus,
+)
+from core.risk_manager import RiskManager
 from core.storage import CandidateStorage
 from strategies.weather.edge_calculator import SignalEvaluation, WeatherEdgeCalculator
 from strategies.weather.noaa_client import NoaaDataError, NoaaForecastClient
@@ -22,6 +32,14 @@ class SignalEngineResult:
     @property
     def all_evaluations(self) -> tuple[SignalEvaluationRecord, ...]:
         return self.accepted + self.rejected
+
+
+@dataclass(frozen=True)
+class SignalRiskGateResult:
+    source: str
+    allowed: tuple[RiskDecisionRecord, ...]
+    blocked: tuple[RiskDecisionRecord, ...]
+    risk_decision_count: int
 
 
 class SignalEngine:
@@ -82,6 +100,52 @@ class SignalEngine:
             accepted=accepted,
             rejected=rejected,
             inserted_count=inserted_count,
+        )
+
+    def evaluate_risk_for_signal(
+        self,
+        signal_evaluations: SignalEvaluationRecord | tuple[SignalEvaluationRecord, ...] | list[SignalEvaluationRecord],
+        *,
+        portfolio: PortfolioSnapshot,
+        risk_manager: RiskManager | None = None,
+        cooldown_active_until: str | None = None,
+        now: datetime | None = None,
+    ) -> SignalRiskGateResult:
+        evaluation_batch = (
+            (signal_evaluations,)
+            if isinstance(signal_evaluations, SignalEvaluationRecord)
+            else tuple(signal_evaluations)
+        )
+        manager = risk_manager or RiskManager(settings=self.settings)
+        decisions = tuple(
+            manager.evaluate_risk_for_signal(
+                evaluation,
+                portfolio,
+                window_key=(
+                    evaluation.market_window_start_local
+                    or evaluation.market_date_local
+                    or evaluation.market_id
+                ),
+                cooldown_active_until=cooldown_active_until,
+                now=now,
+            )
+            for evaluation in evaluation_batch
+        )
+        risk_decision_count = self.storage.persist_risk_decisions(
+            "signal-risk-gate",
+            decisions,
+        )
+        allowed = tuple(
+            decision for decision in decisions if decision.decision_status is RiskDecisionStatus.ALLOWED
+        )
+        blocked = tuple(
+            decision for decision in decisions if decision.decision_status is RiskDecisionStatus.BLOCKED
+        )
+        return SignalRiskGateResult(
+            source="signal-risk-gate",
+            allowed=allowed,
+            blocked=blocked,
+            risk_decision_count=risk_decision_count,
         )
 
     def _record_from_evaluation(

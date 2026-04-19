@@ -65,8 +65,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Implement bankroll, sizing, and exposure-policy logic.
-- [ ] 03-02: Add kill switches, trade gating, and rejection logging.
+- [x] 03-01: Implement bankroll, sizing, and exposure-policy logic.
+- [x] 03-02: Add kill switches, trade gating, and rejection logging.
 
 ### Phase 4: Paper Trading Runtime
 **Goal**: Execute weather signals in simulation mode and measure forward-test performance over time.

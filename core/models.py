@@ -17,6 +17,11 @@ class SignalEvaluationStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class RiskDecisionStatus(StrEnum):
+    ALLOWED = "allowed"
+    BLOCKED = "blocked"
+
+
 class RejectionReason(StrEnum):
     AMBIGUOUS_THRESHOLD = "ambiguous_threshold"
     UNSUPPORTED_WEATHER_TYPE = "unsupported_weather_type"
@@ -83,3 +88,35 @@ class SignalEvaluationRecord:
     decision_reason: str
     status: SignalEvaluationStatus
     evidence: dict[str, object] = field(default_factory=dict)
+    signal_evaluation_id: int | None = None
+
+
+@dataclass(frozen=True)
+class PortfolioSnapshot:
+    """Immutable bankroll and exposure state used by risk policy."""
+
+    current_bankroll_usd: float
+    peak_bankroll_usd: float
+    open_exposure_usd: float
+    open_exposure_by_window: dict[str, float] = field(default_factory=dict)
+    captured_at: str = ""
+
+
+@dataclass(frozen=True)
+class RiskDecisionRecord:
+    """Append-only risk decision emitted for one signal evaluation."""
+
+    signal_evaluation_id: int | None
+    market_id: str
+    window_key: str
+    decision_status: RiskDecisionStatus
+    decision_reason: str
+    triggered_rule_codes: tuple[str, ...]
+    current_bankroll_usd: float
+    peak_bankroll_usd: float
+    open_exposure_usd: float
+    window_exposure_usd: float
+    proposed_stake_usd: float
+    allowed_stake_usd: float
+    evidence: dict[str, object] = field(default_factory=dict)
+    evaluated_at: str | None = None

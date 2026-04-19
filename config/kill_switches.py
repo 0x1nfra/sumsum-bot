@@ -1,4 +1,4 @@
-"""Placeholder kill-switch configuration boundary for later risk phases."""
+"""Typed kill-switch thresholds for risk controls."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class KillSwitchSettings:
-    """Conservative default limits for future paper-trading safeguards."""
+    """Conservative runtime limits for Phase 3 risk gating."""
 
     max_drawdown_pct: float = 0.20
-    max_loss_streak: int = 5
-    pause_minutes_after_trigger: int = 60
+    cooldown_minutes: int = 60
+    block_unaccepted_signals: bool = True
