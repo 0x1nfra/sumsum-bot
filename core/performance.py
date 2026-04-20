@@ -8,17 +8,19 @@ from core.models import BankrollSnapshot, ForwardTestMetrics, PaperPositionRecor
 def calculate_forward_test_metrics(
     bankroll_snapshots: list[BankrollSnapshot],
     resolved_positions: list[PaperPositionRecord],
+    *,
+    starting_bankroll_usd: float = 0.0,
 ) -> ForwardTestMetrics:
     if bankroll_snapshots:
-        starting_bankroll_usd = bankroll_snapshots[0].current_bankroll_usd
+        starting_bankroll = bankroll_snapshots[0].current_bankroll_usd
         current_bankroll_usd = bankroll_snapshots[-1].current_bankroll_usd
     else:
-        starting_bankroll_usd = 0.0
-        current_bankroll_usd = 0.0
+        starting_bankroll = starting_bankroll_usd
+        current_bankroll_usd = starting_bankroll_usd
 
-    bankroll_delta_usd = current_bankroll_usd - starting_bankroll_usd
+    bankroll_delta_usd = current_bankroll_usd - starting_bankroll
     cumulative_return_pct = _pct_change(
-        base_value=starting_bankroll_usd,
+        base_value=starting_bankroll,
         current_value=current_bankroll_usd,
     )
     max_drawdown_pct, drawdown_recovery_steps = _drawdown_metrics(bankroll_snapshots)
@@ -31,7 +33,7 @@ def calculate_forward_test_metrics(
     win_rate_pct = _ratio_pct(winning_positions, resolved_trade_count)
 
     return ForwardTestMetrics(
-        starting_bankroll_usd=round(starting_bankroll_usd, 4),
+        starting_bankroll_usd=round(starting_bankroll, 4),
         current_bankroll_usd=round(current_bankroll_usd, 4),
         bankroll_delta_usd=round(bankroll_delta_usd, 4),
         cumulative_return_pct=round(cumulative_return_pct, 4),

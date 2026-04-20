@@ -83,6 +83,19 @@ def test_forward_test_metrics_compute_max_drawdown_and_recovery_duration() -> No
     assert metrics.drawdown_recovery_steps > 0
 
 
+def test_forward_test_metrics_default_to_starting_bankroll_when_ledger_is_empty() -> None:
+    metrics = calculate_forward_test_metrics(
+        bankroll_snapshots=[],
+        resolved_positions=[],
+        starting_bankroll_usd=100.0,
+    )
+
+    assert metrics.starting_bankroll_usd == 100.0
+    assert metrics.current_bankroll_usd == 100.0
+    assert metrics.bankroll_delta_usd == 0.0
+    assert metrics.cumulative_return_pct == 0.0
+
+
 def _resolved_position(
     *,
     position_id: str = "paper-001",

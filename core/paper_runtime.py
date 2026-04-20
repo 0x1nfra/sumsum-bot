@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 import time
@@ -101,6 +101,7 @@ class PaperRuntime:
         metrics = calculate_forward_test_metrics(
             bankroll_snapshots=self.storage.list_bankroll_snapshots(),
             resolved_positions=self.storage.list_resolved_paper_positions(),
+            starting_bankroll_usd=self.settings.paper_starting_bankroll_usd,
         )
 
         return {
@@ -165,8 +166,10 @@ class PaperRuntime:
             settled_yes = True
         elif outcome == "no":
             settled_yes = False
+        elif isinstance(market_payload.get("settled_yes"), bool):
+            settled_yes = bool(market_payload["settled_yes"])
         else:
-            settled_yes = bool(market_payload.get("settled_yes", False))
+            return None
 
         market_id = str(market_payload.get("id", ""))
         if not market_id:
@@ -210,27 +213,33 @@ class PaperRuntime:
                 risk_decision=decision,
                 no_price=no_price,
                 captured_at=timestamp,
+                bankroll_snapshot=snapshot,
             )
-            self.storage.persist_paper_position(
-                PaperPositionRecord(
-                    **{
-                        **entered_position.__dict__,
-                        "evidence": {
-                            **entered_position.evidence,
-                            "window_key": decision.window_key,
-                            "live_execution_forbidden": live_execution_forbidden,
-                        },
-                    }
-                )
+            entered_position = replace(
+                entered_position,
+                evidence={
+                    **entered_position.evidence,
+                    "window_key": decision.window_key,
+                    "live_execution_forbidden": live_execution_forbidden,
+                },
             )
+            self.storage.persist_paper_position(entered_position)
             self.storage.persist_paper_trade_events(entry_events)
             self.storage.persist_bankroll_snapshots(entry_snapshots)
             snapshot = entry_snapshots[-1]
 
             activated_position, open_events, open_snapshots = activate_position(
-                position=self.storage.list_paper_positions()[-1],
+                position=entered_position,
                 bankroll_snapshot=snapshot,
                 activated_at=_utc_now(),
+            )
+            activated_position = replace(
+                activated_position,
+                evidence={
+                    **activated_position.evidence,
+                    "window_key": decision.window_key,
+                    "live_execution_forbidden": live_execution_forbidden,
+                },
             )
             self.storage.persist_paper_position(activated_position)
             self.storage.persist_paper_trade_events(open_events)

@@ -26,6 +26,7 @@ def create_paper_entry(
     risk_decision: RiskDecisionRecord,
     no_price: float,
     captured_at: str,
+    bankroll_snapshot: BankrollSnapshot | None = None,
     position_id: str | None = None,
     risk_decision_id: int | None = None,
 ) -> tuple[PaperPositionRecord, list[PaperTradeEvent], list[BankrollSnapshot]]:
@@ -69,11 +70,19 @@ def create_paper_entry(
             "position_side": side,
         },
     )
-    snapshot = BankrollSnapshot(
+    starting_snapshot = bankroll_snapshot or BankrollSnapshot(
         current_bankroll_usd=risk_decision.current_bankroll_usd,
         peak_bankroll_usd=risk_decision.peak_bankroll_usd,
-        available_cash_usd=risk_decision.current_bankroll_usd - stake_usd,
-        open_exposure_usd=risk_decision.open_exposure_usd + stake_usd,
+        available_cash_usd=risk_decision.current_bankroll_usd,
+        open_exposure_usd=risk_decision.open_exposure_usd,
+        snapshot_reason=BANKROLL_SNAPSHOT_EVENT,
+        captured_at=captured_at,
+    )
+    snapshot = BankrollSnapshot(
+        current_bankroll_usd=starting_snapshot.current_bankroll_usd,
+        peak_bankroll_usd=starting_snapshot.peak_bankroll_usd,
+        available_cash_usd=starting_snapshot.available_cash_usd - stake_usd,
+        open_exposure_usd=starting_snapshot.open_exposure_usd + stake_usd,
         snapshot_reason=BANKROLL_SNAPSHOT_EVENT,
         captured_at=captured_at,
     )

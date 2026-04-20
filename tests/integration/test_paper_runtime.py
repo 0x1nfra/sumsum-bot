@@ -146,6 +146,53 @@ def test_paper_runtime_skips_unresolved_markets_until_resolver_matrix_marks_term
     assert second_position.status is PaperPositionStatus.RESOLVED
 
 
+def test_paper_runtime_leaves_ambiguous_terminal_market_open(
+    temp_sqlite_db_path: Path,
+) -> None:
+    settings = _settings(temp_sqlite_db_path)
+    storage = CandidateStorage.from_settings(settings)
+    runtime = PaperRuntime(
+        settings=settings,
+        storage=storage,
+        scanner=_StubScanner(),
+        signal_engine=_StubSignalEngine(allowed_decisions=(_allowed_decision(),)),
+        market_provider=_StubMarketProvider([{"markets": [_ambiguous_terminal_market_payload()]}]),
+    )
+
+    summary = runtime.run_once(mode="paper-once", fixture_path=None)
+
+    assert summary["resolved_positions"] == 0
+    positions = storage.list_paper_positions()
+    assert len(positions) == 1
+    assert positions[0].status is PaperPositionStatus.OPEN
+
+
+def test_paper_runtime_uses_latest_bankroll_snapshot_for_multiple_entries(
+    temp_sqlite_db_path: Path,
+) -> None:
+    settings = _settings(temp_sqlite_db_path)
+    storage = CandidateStorage.from_settings(settings)
+    runtime = PaperRuntime(
+        settings=settings,
+        storage=storage,
+        scanner=_StubScanner(),
+        signal_engine=_StubSignalEngine(
+            allowed_decisions=(
+                _allowed_decision(market_id="wx-temp-phx-001", window_key="2026-04-18"),
+                _allowed_decision(market_id="wx-temp-phx-002", window_key="2026-04-19"),
+            ),
+        ),
+        market_provider=_StubMarketProvider([{"markets": []}]),
+    )
+
+    summary = runtime.run_once(mode="paper-once", fixture_path=None)
+
+    assert summary["entered_positions"] == 2
+    snapshots = storage.list_bankroll_snapshots()
+    assert [snapshot.available_cash_usd for snapshot in snapshots[:4]] == [95.0, 95.0, 90.0, 90.0]
+    assert [snapshot.open_exposure_usd for snapshot in snapshots[:4]] == [5.0, 5.0, 10.0, 10.0]
+
+
 def test_paper_runtime_summary_reports_forward_test_metrics(
     temp_sqlite_db_path: Path,
     tmp_path: Path,
@@ -226,12 +273,35 @@ def test_paper_runtime_summary_reports_forward_test_metrics(
     assert summary["resolved_trade_count"] == 1
 
 
+def test_paper_runtime_summary_uses_starting_bankroll_before_first_trade(
+    temp_sqlite_db_path: Path,
+) -> None:
+    settings = _settings(temp_sqlite_db_path)
+    storage = CandidateStorage.from_settings(settings)
+    runtime = PaperRuntime(
+        settings=settings,
+        storage=storage,
+        scanner=_StubScanner(),
+        signal_engine=_StubSignalEngine(allowed_decisions=()),
+        market_provider=_StubMarketProvider([{"markets": []}]),
+    )
+
+    summary = runtime.run_once(mode="paper-once", fixture_path=None)
+
+    assert summary["starting_bankroll_usd"] == settings.paper_starting_bankroll_usd
+    assert summary["current_bankroll_usd"] == settings.paper_starting_bankroll_usd
+    assert summary["bankroll_delta_usd"] == 0.0
+
+
 class _StubSignalEngine:
     def __init__(self, *, allowed_decisions: tuple[RiskDecisionRecord, ...]) -> None:
         self._allowed_decisions = allowed_decisions
 
     def evaluate_candidates(self, candidates: object | None = None) -> object:
-        accepted = tuple(_accepted_signal_record() for _ in self._allowed_decisions)
+        accepted = tuple(
+            _accepted_signal_record(market_id=decision.market_id)
+            for decision in self._allowed_decisions
+        )
         return type(
             "SignalResult",
             (),
@@ -302,11 +372,15 @@ def _settings(database_path: Path) -> ScanSettings:
     )
 
 
-def _allowed_decision() -> RiskDecisionRecord:
+def _allowed_decision(
+    *,
+    market_id: str = "wx-temp-phx-001",
+    window_key: str = "2026-04-18",
+) -> RiskDecisionRecord:
     return RiskDecisionRecord(
         signal_evaluation_id=11,
-        market_id="wx-temp-phx-001",
-        window_key="2026-04-18",
+        market_id=market_id,
+        window_key=window_key,
         decision_status=RiskDecisionStatus.ALLOWED,
         decision_reason="edge_threshold_passed",
         triggered_rule_codes=("edge_threshold_passed",),
@@ -318,16 +392,16 @@ def _allowed_decision() -> RiskDecisionRecord:
         allowed_stake_usd=5.0,
         evidence={
             "position_side": "no",
-            "market_id": "wx-temp-phx-001",
-            "window_key": "2026-04-18",
+            "market_id": market_id,
+            "window_key": window_key,
             "live_execution_forbidden": True,
         },
     )
 
 
-def _accepted_signal_record() -> SignalEvaluationRecord:
+def _accepted_signal_record(market_id: str = "wx-temp-phx-001") -> SignalEvaluationRecord:
     return SignalEvaluationRecord(
-        market_id="wx-temp-phx-001",
+        market_id=market_id,
         scan_run_id=1,
         location="Phoenix",
         mapping_city_key="phoenix",
@@ -347,11 +421,11 @@ def _accepted_signal_record() -> SignalEvaluationRecord:
     )
 
 
-def _approved_candidate() -> object:
+def _approved_candidate(market_id: str = "wx-temp-phx-001") -> object:
     from core.models import CandidateRecord, CandidateStatus
 
     return CandidateRecord(
-        market_id="wx-temp-phx-001",
+        market_id=market_id,
         title="Phoenix temperature",
         status=CandidateStatus.APPROVED,
         location="Phoenix",
@@ -378,6 +452,16 @@ def _non_terminal_market_payload() -> dict[str, object]:
 
 
 def _terminal_market_payload() -> dict[str, object]:
+    return {
+        "id": "wx-temp-phx-001",
+        "closed": True,
+        "closedTime": "2026-04-20T00:00:00Z",
+        "resolvedBy": "oracle",
+        "umaResolutionStatus": "resolved",
+    }
+
+
+def _ambiguous_terminal_market_payload() -> dict[str, object]:
     return {
         "id": "wx-temp-phx-001",
         "closed": True,
