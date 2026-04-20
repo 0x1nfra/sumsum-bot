@@ -1,10 +1,11 @@
 ---
 phase: 04
 slug: paper-trading-runtime
-status: draft
+status: audited
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-19
+updated: 2026-04-20
 ---
 
 # Phase 04 — Validation Strategy
@@ -38,10 +39,10 @@ created: 2026-04-19
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 01 | 1 | PAPR-02 | T-04-01 | Paper positions, lifecycle events, and bankroll snapshots persist append-only with explicit state transitions. | integration | `uv run --extra dev pytest tests/integration/test_paper_storage.py -q` | Planned in 04-01 | ⬜ pending |
-| 04-01-02 | 01 | 1 | PAPR-02 | T-04-01 / T-04-02 | Entry and settlement rules update contract counts, reserved stake, and resolved proceeds deterministically. | unit | `uv run --extra dev pytest tests/unit/test_paper_execution.py -q` | Planned in 04-01 | ⬜ pending |
-| 04-02-01 | 02 | 2 | PAPR-01, PAPR-02 | T-04-02 | Paper runtime runs once/loop mode without live execution, reuses upstream seams, and restores open positions from storage. | integration | `uv run --extra dev pytest tests/integration/test_paper_runtime.py -q` | Planned in 04-02 | ⬜ pending |
-| 04-03-01 | 03 | 3 | PAPR-03 | T-04-03 | Forward-test metrics compute cumulative return, drawdown, and drawdown recovery from durable bankroll/trade history. | unit | `uv run --extra dev pytest tests/unit/test_performance_metrics.py -q` | Planned in 04-03 | ⬜ pending |
+| 04-01-01 | 01 | 1 | PAPR-02 | T-04-01 | Paper positions, lifecycle events, and bankroll snapshots persist append-only with explicit state transitions. | integration | `uv run --extra dev pytest tests/integration/test_paper_storage.py -q` | `tests/integration/test_paper_storage.py` | ✅ green |
+| 04-01-02 | 01 | 1 | PAPR-02 | T-04-01 / T-04-02 | Entry and settlement rules update contract counts, reserved stake, and resolved proceeds deterministically. | unit | `uv run --extra dev pytest tests/unit/test_paper_execution.py -q` | `tests/unit/test_paper_execution.py` | ✅ green |
+| 04-02-01 | 02 | 2 | PAPR-01, PAPR-02 | T-04-02 | Paper runtime runs once/loop mode without live execution, reuses upstream seams, and restores open positions from storage. | integration | `uv run --extra dev pytest tests/integration/test_paper_runtime.py -q` | `tests/integration/test_paper_runtime.py` | ✅ green |
+| 04-03-01 | 03 | 3 | PAPR-03 | T-04-03 | Forward-test metrics compute cumulative return, drawdown, and drawdown recovery from durable bankroll/trade history. | unit | `uv run --extra dev pytest tests/unit/test_performance_metrics.py -q` | `tests/unit/test_performance_metrics.py` | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -74,4 +75,16 @@ created: 2026-04-19
 - [x] Feedback latency < 45s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
+
+## Validation Audit 2026-04-20
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 4 |
+| Escalated | 0 |
+
+- Confirmed existing Phase 4 validation coverage is `COVERED` for `PAPR-01`, `PAPR-02`, and `PAPR-03`.
+- Verified `tests/unit/test_paper_execution.py`, `tests/unit/test_performance_metrics.py`, `tests/integration/test_paper_storage.py`, and `tests/integration/test_paper_runtime.py` exist and execute green.
+- Audit run: `uv run --extra dev pytest tests/integration/test_paper_storage.py tests/unit/test_paper_execution.py tests/integration/test_paper_runtime.py tests/unit/test_performance_metrics.py -q` → `18 passed in 0.25s`.
