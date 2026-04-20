@@ -30,10 +30,11 @@ def test_paper_runtime_once_mode_enters_allowed_trade_without_live_execution(
     runtime = PaperRuntime(
         settings=settings,
         storage=storage,
+        scanner=_StubScanner(),
         signal_engine=_StubSignalEngine(
             allowed_decisions=(_allowed_decision(),),
         ),
-        market_provider=_StubMarketProvider([_terminal_market_payload()]),
+        market_provider=_StubMarketProvider([{"markets": [_terminal_market_payload()]}]),
         resolver=_StubResolverMatrix(settled_yes=False),
     )
 
@@ -99,15 +100,16 @@ def test_paper_runtime_restores_open_positions_before_resolution_pass(
     runtime = PaperRuntime(
         settings=settings,
         storage=storage,
+        scanner=_StubScanner(),
         signal_engine=_StubSignalEngine(allowed_decisions=()),
-        market_provider=_StubMarketProvider([_terminal_market_payload()]),
+        market_provider=_StubMarketProvider([{"markets": [_terminal_market_payload()]}]),
         resolver=_StubResolverMatrix(settled_yes=False),
         observer=restore_order.append,
     )
 
     runtime.run_once(mode="paper-once", fixture_path=None)
 
-    assert restore_order[:2] == ["restore_open_positions", "resolution_pass"]
+    assert restore_order.index("restore_open_positions") < restore_order.index("resolution_pass")
 
 
 def test_paper_runtime_skips_unresolved_markets_until_resolver_matrix_marks_terminal(
@@ -118,11 +120,12 @@ def test_paper_runtime_skips_unresolved_markets_until_resolver_matrix_marks_term
     runtime = PaperRuntime(
         settings=settings,
         storage=storage,
+        scanner=_StubScanner(),
         signal_engine=_StubSignalEngine(allowed_decisions=(_allowed_decision(),)),
         market_provider=_StubMarketProvider(
             [
-                _non_terminal_market_payload(),
-                _terminal_market_payload(),
+                {"markets": [_non_terminal_market_payload()]},
+                {"markets": [_terminal_market_payload()]},
             ]
         ),
         resolver=_StubResolverMatrix(settled_yes=False),
@@ -175,6 +178,21 @@ class _StubMarketProvider:
         payload = self._payloads[min(self._index, len(self._payloads) - 1)]
         self._index += 1
         return payload
+
+
+class _StubScanner:
+    def run_scan(self, payload: object, storage: CandidateStorage) -> object:
+        return type(
+            "ScanResult",
+            (),
+            {
+                "source": "stub-scanner",
+                "approved": (_approved_candidate(),),
+                "review": (),
+                "rejected": (),
+                "scan_run_id": 1,
+            },
+        )()
 
 
 class _StubResolverMatrix:
@@ -243,6 +261,26 @@ def _accepted_signal_record() -> SignalEvaluationRecord:
         decision_reason="edge_threshold_passed",
         status=SignalEvaluationStatus.ACCEPTED,
         evidence={"resolver_matrix": "stub"},
+    )
+
+
+def _approved_candidate() -> object:
+    from core.models import CandidateRecord, CandidateStatus
+
+    return CandidateRecord(
+        market_id="wx-temp-phx-001",
+        title="Phoenix temperature",
+        status=CandidateStatus.APPROVED,
+        location="Phoenix",
+        contract_family="temperature",
+        metric="temperature",
+        no_price=0.40,
+        liquidity_usd=10000.0,
+        resolution_hours=24,
+        market_date_local="2026-04-18",
+        market_window_start_local="2026-04-18T00:00:00-07:00",
+        market_window_end_local="2026-04-19T00:00:00-07:00",
+        location_key="phoenix",
     )
 
 

@@ -101,3 +101,14 @@ class PolymarketDiscoveryClient:
         if not isinstance(value, int | float):
             raise PolymarketPayloadError(f"{field} must be numeric")
         return float(value)
+
+
+def normalize_terminal_state_fields(market: Mapping[str, object]) -> dict[str, object | None]:
+    """Normalize settlement-oriented Polymarket terminal fields without changing discovery contracts."""
+
+    return {
+        "closed": market.get("closed"),
+        "closedTime": market.get("closedTime"),
+        "resolvedBy": market.get("resolvedBy"),
+        "umaResolutionStatus": market.get("umaResolutionStatus"),
+    }
