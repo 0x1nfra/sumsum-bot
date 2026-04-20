@@ -20,10 +20,12 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     scan_once = subcommands.add_parser("scan-once", help="Run one scan using fixture payload data.")
-    _add_scan_arguments(scan_once, settings)
+    add_runtime_arguments(scan_once, settings)
+    add_scan_threshold_arguments(scan_once, settings)
 
     scan_loop = subcommands.add_parser("scan-loop", help="Run a bounded scan loop using fixture payload data.")
-    _add_scan_arguments(scan_loop, settings)
+    add_runtime_arguments(scan_loop, settings)
+    add_scan_threshold_arguments(scan_loop, settings)
     scan_loop.add_argument(
         "--iterations",
         type=int,
@@ -34,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_scan_arguments(parser: argparse.ArgumentParser, settings: ScanSettings) -> None:
+def add_runtime_arguments(parser: argparse.ArgumentParser, settings: ScanSettings) -> None:
     parser.add_argument(
         "--fixture",
         type=Path,
@@ -52,6 +54,9 @@ def _add_scan_arguments(parser: argparse.ArgumentParser, settings: ScanSettings)
         default=settings.scan_interval_seconds,
         help="Seconds to wait between scan-loop iterations.",
     )
+
+
+def add_scan_threshold_arguments(parser: argparse.ArgumentParser, settings: ScanSettings) -> None:
     parser.add_argument(
         "--min-liquidity",
         type=int,
