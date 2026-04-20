@@ -24,8 +24,8 @@
 
 ### Paper Trading
 
-- [ ] **PAPR-01**: Operator can run the bot in paper-trading mode without sending live orders.
-- [ ] **PAPR-02**: Operator can simulate order entry, open-position tracking, and market resolution for weather trades.
+- [x] **PAPR-01**: Operator can run the bot in paper-trading mode without sending live orders.
+- [x] **PAPR-02**: Operator can simulate order entry, open-position tracking, and market resolution for weather trades.
 - [ ] **PAPR-03**: Operator can measure bankroll change, PnL percentage, and recovery from drawdown over a 2-week forward test.
 
 ### Observability
@@ -78,8 +78,8 @@
 | RISK-01 | Phase 3 | Complete |
 | RISK-02 | Phase 3 | Complete |
 | RISK-03 | Phase 3 | Complete |
-| PAPR-01 | Phase 4 | Pending |
-| PAPR-02 | Phase 4 | Pending |
+| PAPR-01 | Phase 4 | Complete |
+| PAPR-02 | Phase 4 | Complete |
 | PAPR-03 | Phase 4 | Pending |
 | OBSV-01 | Phase 5 | Pending |
 | OBSV-02 | Phase 5 | Pending |

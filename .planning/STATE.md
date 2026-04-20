@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready
-stopped_at: Phase 03 complete
-last_updated: "2026-04-19T13:31:00.000Z"
-last_activity: 2026-04-19 -- Phase 03 completed
+status: executing
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-20T02:07:06.686Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_plans: 14
+  completed_plans: 13
+  percent: 93
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 04 (paper-trading-runtime)
-Plan: Ready to plan
-Status: Phase 03 complete
-Last activity: 2026-04-19 -- Phase 03 completed
+Phase: 04 (paper-trading-runtime) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-20
 
 Progress: [██████████] 100% of completed planned work so far
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100% of completed planned work so far
 | Phase 02-noaa-signal-engine P03 | 4min | 3 tasks | 5 files |
 | Phase 03-risk-and-portfolio-controls P01 | 17min | 3 tasks | 8 files |
 | Phase 03-risk-and-portfolio-controls P02 | 18min | 3 tasks | 6 files |
+| Phase 04 P02 | 4min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 03-risk-and-portfolio-controls]: Kelly sizing applies an explicit probability haircut before quarter-Kelly and per-trade cap clamps.
 - [Phase 03-risk-and-portfolio-controls]: Risk decisions are append-only rows linked back to stored signal evaluations.
 - [Phase 03-risk-and-portfolio-controls]: Drawdown, cooldown, and signal-safety gates fail closed before any paper-trade lifecycle exists.
+- [Phase 04]: Paper runtime restores open positions from SQLite before the settlement pass so restarts do not lose lifecycle state.
+- [Phase 04]: Settlement inspects closed, closedTime, resolvedBy, and umaResolutionStatus and keeps positions open when any terminal signal is ambiguous.
+- [Phase 04]: The paper CLI stays paper-only and delegates business logic to PaperRuntime while emitting JSON summaries.
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T12:56:20.609Z
-Stopped at: Phase 03 complete
-Resume file: .planning/phases/03-risk-and-portfolio-controls/03-VERIFICATION.md
+Last session: 2026-04-20T02:07:06.681Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: None
