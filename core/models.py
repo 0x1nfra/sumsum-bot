@@ -176,3 +176,17 @@ class BankrollSnapshot:
     open_exposure_usd: float
     snapshot_reason: str
     captured_at: str
+
+
+@dataclass(frozen=True)
+class ForwardTestMetrics:
+    """Deterministic Phase 4 forward-test metrics derived from durable history."""
+
+    starting_bankroll_usd: float
+    current_bankroll_usd: float
+    bankroll_delta_usd: float
+    cumulative_return_pct: float
+    max_drawdown_pct: float
+    drawdown_recovery_steps: int
+    resolved_trade_count: int
+    win_rate_pct: float

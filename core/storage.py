@@ -488,6 +488,23 @@ class CandidateStorage:
 
         return [self._paper_position_from_row(row) for row in rows]
 
+    def list_resolved_paper_positions(self) -> list[PaperPositionRecord]:
+        self.bootstrap()
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT position_id, market_id, risk_decision_id, signal_evaluation_id, entry_price,
+                       stake_usd, contract_count, status, entered_at, opened_at, resolved_at,
+                       resolution_price, realized_pnl_usd, evidence_json
+                FROM paper_positions
+                WHERE status = ?
+                ORDER BY resolved_at, position_id
+                """,
+                (PaperPositionStatus.RESOLVED.value,),
+            ).fetchall()
+
+        return [self._paper_position_from_row(row) for row in rows]
+
     def persist_paper_trade_events(
         self,
         events: Iterable[PaperTradeEvent],
