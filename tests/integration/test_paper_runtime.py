@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import subprocess
+import sys
 
 import pytest
 
@@ -141,6 +144,86 @@ def test_paper_runtime_skips_unresolved_markets_until_resolver_matrix_marks_term
     second_position = storage.list_paper_positions()[0]
     assert second_summary["resolved_positions"] == 1
     assert second_position.status is PaperPositionStatus.RESOLVED
+
+
+def test_paper_runtime_summary_reports_forward_test_metrics(
+    temp_sqlite_db_path: Path,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(temp_sqlite_db_path)
+    storage = CandidateStorage.from_settings(settings)
+    storage.persist_paper_position(
+        _resolved_position(
+            position_id="paper-metric-001",
+            realized_pnl_usd=8.0,
+        )
+    )
+    storage.persist_bankroll_snapshots(
+        (
+            BankrollSnapshot(
+                current_bankroll_usd=100.0,
+                peak_bankroll_usd=100.0,
+                available_cash_usd=100.0,
+                open_exposure_usd=0.0,
+                snapshot_reason="start",
+                captured_at="2026-04-19T00:00:00Z",
+            ),
+            BankrollSnapshot(
+                current_bankroll_usd=110.0,
+                peak_bankroll_usd=110.0,
+                available_cash_usd=110.0,
+                open_exposure_usd=0.0,
+                snapshot_reason="peak",
+                captured_at="2026-04-19T01:00:00Z",
+            ),
+            BankrollSnapshot(
+                current_bankroll_usd=88.0,
+                peak_bankroll_usd=110.0,
+                available_cash_usd=88.0,
+                open_exposure_usd=0.0,
+                snapshot_reason="drawdown",
+                captured_at="2026-04-19T02:00:00Z",
+            ),
+            BankrollSnapshot(
+                current_bankroll_usd=108.0,
+                peak_bankroll_usd=110.0,
+                available_cash_usd=108.0,
+                open_exposure_usd=0.0,
+                snapshot_reason="end",
+                captured_at="2026-04-19T03:00:00Z",
+            ),
+        )
+    )
+    fixture_path = tmp_path / "empty-markets.json"
+    fixture_path.write_text(json.dumps({"markets": []}))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "paper_trader.py",
+            "paper-once",
+            "--fixture",
+            str(fixture_path),
+            "--database-path",
+            str(temp_sqlite_db_path),
+            "--interval",
+            "0",
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = result.stdout.strip().splitlines()
+    summary = json.loads(output[-1])
+    assert summary["cumulative_return_pct"] == 8.0
+    assert summary["bankroll_delta_usd"] == 8.0
+    assert summary["max_drawdown_pct"] == 20.0
+    assert "drawdown_recovery_steps" in summary
+    assert "resolved_trade_count" in summary
+    assert summary["resolved_trade_count"] == 1
 
 
 class _StubSignalEngine:
@@ -310,3 +393,26 @@ def _terminal_market_payload() -> dict[str, object]:
 )
 def test_runtime_contract_strings(contract_string: str) -> None:
     assert contract_string
+
+
+def _resolved_position(
+    *,
+    position_id: str,
+    realized_pnl_usd: float,
+) -> PaperPositionRecord:
+    return PaperPositionRecord(
+        position_id=position_id,
+        market_id="wx-temp-phx-001",
+        risk_decision_id=7,
+        signal_evaluation_id=11,
+        entry_price=0.4,
+        stake_usd=5.0,
+        contract_count=12.5,
+        status=PaperPositionStatus.RESOLVED,
+        entered_at="2026-04-19T00:00:00Z",
+        opened_at="2026-04-19T00:00:01Z",
+        resolved_at="2026-04-19T00:10:00Z",
+        resolution_price=1.0,
+        realized_pnl_usd=realized_pnl_usd,
+        evidence={"window_key": "2026-04-18", "resolver_matrix": "seed"},
+    )

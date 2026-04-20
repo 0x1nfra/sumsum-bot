@@ -19,6 +19,7 @@ from core.models import (
     RiskDecisionStatus,
 )
 from core.paper_execution import activate_position, create_paper_entry, settle_position
+from core.performance import calculate_forward_test_metrics
 from core.storage import CandidateStorage
 from strategies.weather.signal_engine import SignalEngine
 
@@ -97,6 +98,10 @@ class PaperRuntime:
             restored_positions + entered_positions,
             payload,
         )
+        metrics = calculate_forward_test_metrics(
+            bankroll_snapshots=self.storage.list_bankroll_snapshots(),
+            resolved_positions=self.storage.list_resolved_paper_positions(),
+        )
 
         return {
             "mode": mode,
@@ -109,6 +114,14 @@ class PaperRuntime:
             "restored_positions": len(restored_positions),
             "resolver_matrix": self._resolver_matrix_name(payload),
             "live_execution_forbidden": live_execution_forbidden,
+            "starting_bankroll_usd": metrics.starting_bankroll_usd,
+            "current_bankroll_usd": metrics.current_bankroll_usd,
+            "bankroll_delta_usd": metrics.bankroll_delta_usd,
+            "cumulative_return_pct": metrics.cumulative_return_pct,
+            "max_drawdown_pct": metrics.max_drawdown_pct,
+            "drawdown_recovery_steps": metrics.drawdown_recovery_steps,
+            "resolved_trade_count": metrics.resolved_trade_count,
+            "win_rate_pct": metrics.win_rate_pct,
         }
 
     def run_loop(
