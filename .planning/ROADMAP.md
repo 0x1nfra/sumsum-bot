@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Market Discovery Foundation** - Build the shared models, configuration, persistence, and weather market scanner.
 - [x] **Phase 2: NOAA Signal Engine** - Turn market candidates into explicit weather trade signals.
 - [ ] **Phase 3: Risk and Portfolio Controls** - Enforce bankroll-aware sizing, guardrails, and trade gating.
-- [ ] **Phase 4: Paper Trading Runtime** - Run continuous simulated trading with position lifecycle tracking.
+- [x] **Phase 4: Paper Trading Runtime** - Run continuous simulated trading with position lifecycle tracking. (completed 2026-04-20)
 - [ ] **Phase 5: Dashboard and Logging** - Expose portfolio state, trade history, and operational diagnostics.
 - [ ] **Phase 6: 24/7 Deployment Readiness** - Package and operate the paper trader on a cheap VPS with Docker.
 
@@ -79,9 +79,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Implement the paper execution engine and trade lifecycle state machine.
-- [ ] 04-02-PLAN.md — Build scheduling/runtime orchestration for continuous scanning and simulated execution.
-- [ ] 04-03-PLAN.md — Add forward-test performance calculations over bankroll history and resolved trades.
+- [x] 04-01-PLAN.md — Implement the paper execution engine and trade lifecycle state machine.
+- [x] 04-02-PLAN.md — Build scheduling/runtime orchestration for continuous scanning and simulated execution.
+- [x] 04-03-PLAN.md — Add forward-test performance calculations over bankroll history and resolved trades.
 
 ### Phase 5: Dashboard and Logging
 **Goal**: Make the simulation observable through a usable dashboard and comprehensive event logs.
@@ -123,6 +123,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Market Discovery Foundation | 6/6 | Complete | 2026-04-17 |
 | 2. NOAA Signal Engine | 3/3 | Complete | 2026-04-18 |
 | 3. Risk and Portfolio Controls | 2/2 | Complete | 2026-04-19 |
-| 4. Paper Trading Runtime | 0/3 | Not started | - |
+| 4. Paper Trading Runtime | 3/3 | Complete   | 2026-04-20 |
 | 5. Dashboard and Logging | 0/3 | Not started | - |
 | 6. 24/7 Deployment Readiness | 0/3 | Not started | - |

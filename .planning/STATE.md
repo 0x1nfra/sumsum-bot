@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-20T02:07:06.686Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-04-20T02:13:44.240Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
-  percent: 93
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Prove that the weather strategy can preserve capital, recover from drawdowns, and produce positive paper-trading returns over a 2-week forward test before any live deployment.
-**Current focus:** Phase 04 — paper-trading-runtime
+**Current focus:** Phase 05 — dashboard-and-logging
 
 ## Current Position
 
-Phase: 04 (paper-trading-runtime) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
+Phase: 04 (paper-trading-runtime) — COMPLETE
+Plan: 3 of 3
+Status: Awaiting Phase 05 planning
 Last activity: 2026-04-20
 
 Progress: [██████████] 100% of completed planned work so far
@@ -50,8 +50,8 @@ Progress: [██████████] 100% of completed planned work so far
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 through 01-05 complete
-- Trend: Phase 3 complete, Phase 4 ready to start
+- Last 5 plans: 02-03 through 04-03 complete
+- Trend: Phase 4 complete, ready to begin Phase 5 planning
 
 | Phase 02-noaa-signal-engine P01 | 7min | 3 tasks | 10 files |
 | Phase 02-noaa-signal-engine P02 | 2min | 2 tasks | 2 files |
@@ -59,6 +59,7 @@ Progress: [██████████] 100% of completed planned work so far
 | Phase 03-risk-and-portfolio-controls P01 | 17min | 3 tasks | 8 files |
 | Phase 03-risk-and-portfolio-controls P02 | 18min | 3 tasks | 6 files |
 | Phase 04 P02 | 4min | 3 tasks | 5 files |
+| Phase 04 P03 | 15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Paper runtime restores open positions from SQLite before the settlement pass so restarts do not lose lifecycle state.
 - [Phase 04]: Settlement inspects closed, closedTime, resolvedBy, and umaResolutionStatus and keeps positions open when any terminal signal is ambiguous.
 - [Phase 04]: The paper CLI stays paper-only and delegates business logic to PaperRuntime while emitting JSON summaries.
+- [Phase 04]: Paper runtime summaries expose the deterministic metrics object directly and stay CLI/storage-only.
+- [Phase 04]: Forward-test metrics are computed only from ordered bankroll snapshots and resolved paper positions.
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T02:07:06.681Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-04-20T02:13:44.009Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
