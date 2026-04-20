@@ -22,6 +22,14 @@ class RiskDecisionStatus(StrEnum):
     BLOCKED = "blocked"
 
 
+class PaperPositionStatus(StrEnum):
+    """Paper-trade lifecycle states for immediate-fill weather positions."""
+
+    ENTERED = "entered"
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
 class RejectionReason(StrEnum):
     AMBIGUOUS_THRESHOLD = "ambiguous_threshold"
     UNSUPPORTED_WEATHER_TYPE = "unsupported_weather_type"
@@ -120,3 +128,65 @@ class RiskDecisionRecord:
     allowed_stake_usd: float
     evidence: dict[str, object] = field(default_factory=dict)
     evaluated_at: str | None = None
+
+
+@dataclass(frozen=True)
+class PaperPositionRecord:
+    """Durable paper position.
+
+    `entered` means the immediate paper fill has been created and reserved cash has
+    been snapshotted. `open` means the persisted position has been activated for
+    later polling and restoration without a second stake deduction. `resolved`
+    means terminal settlement has completed and realized PnL is final.
+    """
+
+    position_id: str
+    market_id: str
+    risk_decision_id: int | None
+    signal_evaluation_id: int | None
+    entry_price: float
+    stake_usd: float
+    contract_count: float
+    status: PaperPositionStatus
+    entered_at: str
+    opened_at: str | None = None
+    resolved_at: str | None = None
+    resolution_price: float | None = None
+    realized_pnl_usd: float | None = None
+    evidence: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PaperTradeEvent:
+    """Append-only paper lifecycle event such as paper_entry, paper_open, or paper_resolution."""
+
+    position_id: str
+    event_type: str
+    event_timestamp: str
+    details: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class BankrollSnapshot:
+    """Durable bankroll state recorded at each lifecycle boundary."""
+
+    current_bankroll_usd: float
+    peak_bankroll_usd: float
+    available_cash_usd: float
+    open_exposure_usd: float
+    snapshot_reason: str
+    captured_at: str
+
+
+@dataclass(frozen=True)
+class ForwardTestMetrics:
+    """Deterministic Phase 4 forward-test metrics derived from durable history."""
+
+    starting_bankroll_usd: float
+    current_bankroll_usd: float
+    bankroll_delta_usd: float
+    cumulative_return_pct: float
+    max_drawdown_pct: float
+    drawdown_recovery_steps: int
+    resolved_trade_count: int
+    win_rate_pct: float

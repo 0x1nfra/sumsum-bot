@@ -9,8 +9,12 @@ from typing import Iterable
 
 from config.settings import ScanSettings, get_settings
 from core.models import (
+    BankrollSnapshot,
     CandidateRecord,
     CandidateStatus,
+    PaperPositionRecord,
+    PaperPositionStatus,
+    PaperTradeEvent,
     RiskDecisionRecord,
     RiskDecisionStatus,
     ScanResultMetadata,
@@ -172,6 +176,42 @@ class CandidateStorage:
                     allowed_stake_usd REAL NOT NULL,
                     evidence_json TEXT NOT NULL,
                     evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS paper_positions (
+                    position_id TEXT PRIMARY KEY,
+                    market_id TEXT NOT NULL,
+                    risk_decision_id INTEGER,
+                    signal_evaluation_id INTEGER,
+                    entry_price REAL NOT NULL,
+                    stake_usd REAL NOT NULL,
+                    contract_count REAL NOT NULL,
+                    status TEXT NOT NULL,
+                    entered_at TEXT NOT NULL,
+                    opened_at TEXT,
+                    resolved_at TEXT,
+                    resolution_price REAL,
+                    realized_pnl_usd REAL,
+                    evidence_json TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS paper_trade_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    position_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    event_timestamp TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    FOREIGN KEY (position_id) REFERENCES paper_positions(position_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS bankroll_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    current_bankroll_usd REAL NOT NULL,
+                    peak_bankroll_usd REAL NOT NULL,
+                    available_cash_usd REAL NOT NULL,
+                    open_exposure_usd REAL NOT NULL,
+                    snapshot_reason TEXT NOT NULL,
+                    captured_at TEXT NOT NULL
                 );
                 """
             )
@@ -341,6 +381,229 @@ class CandidateStorage:
                 allowed_stake_usd=float(row["allowed_stake_usd"]),
                 evidence=json.loads(row["evidence_json"]),
                 evaluated_at=row["evaluated_at"],
+            )
+            for row in rows
+        ]
+
+    def persist_paper_position(self, position: PaperPositionRecord) -> None:
+        self.bootstrap()
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO paper_positions (
+                    position_id, market_id, risk_decision_id, signal_evaluation_id, entry_price,
+                    stake_usd, contract_count, status, entered_at, opened_at, resolved_at,
+                    resolution_price, realized_pnl_usd, evidence_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    position.position_id,
+                    position.market_id,
+                    position.risk_decision_id,
+                    position.signal_evaluation_id,
+                    position.entry_price,
+                    position.stake_usd,
+                    position.contract_count,
+                    position.status.value,
+                    position.entered_at,
+                    position.opened_at,
+                    position.resolved_at,
+                    position.resolution_price,
+                    position.realized_pnl_usd,
+                    json.dumps(position.evidence, sort_keys=True),
+                ),
+            )
+
+    def activate_paper_position(
+        self,
+        *,
+        position_id: str,
+        opened_at: str,
+    ) -> None:
+        self.bootstrap()
+        with self.connect() as connection:
+            connection.execute(
+                """
+                UPDATE paper_positions
+                SET status = ?, opened_at = ?
+                WHERE position_id = ?
+                """,
+                (PaperPositionStatus.OPEN.value, opened_at, position_id),
+            )
+
+    def update_paper_position_resolution(
+        self,
+        *,
+        position_id: str,
+        resolved_at: str,
+        resolution_price: float,
+        realized_pnl_usd: float,
+    ) -> None:
+        self.bootstrap()
+        with self.connect() as connection:
+            connection.execute(
+                """
+                UPDATE paper_positions
+                SET status = ?, resolved_at = ?, resolution_price = ?, realized_pnl_usd = ?
+                WHERE position_id = ?
+                """,
+                (
+                    PaperPositionStatus.RESOLVED.value,
+                    resolved_at,
+                    resolution_price,
+                    realized_pnl_usd,
+                    position_id,
+                ),
+            )
+
+    def list_open_paper_positions(self) -> list[PaperPositionRecord]:
+        self.bootstrap()
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT position_id, market_id, risk_decision_id, signal_evaluation_id, entry_price,
+                       stake_usd, contract_count, status, entered_at, opened_at, resolved_at,
+                       resolution_price, realized_pnl_usd, evidence_json
+                FROM paper_positions
+                WHERE status = ?
+                ORDER BY entered_at, position_id
+                """,
+                (PaperPositionStatus.OPEN.value,),
+            ).fetchall()
+
+        return [self._paper_position_from_row(row) for row in rows]
+
+    def list_paper_positions(self) -> list[PaperPositionRecord]:
+        self.bootstrap()
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT position_id, market_id, risk_decision_id, signal_evaluation_id, entry_price,
+                       stake_usd, contract_count, status, entered_at, opened_at, resolved_at,
+                       resolution_price, realized_pnl_usd, evidence_json
+                FROM paper_positions
+                ORDER BY entered_at, position_id
+                """
+            ).fetchall()
+
+        return [self._paper_position_from_row(row) for row in rows]
+
+    def list_resolved_paper_positions(self) -> list[PaperPositionRecord]:
+        self.bootstrap()
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT position_id, market_id, risk_decision_id, signal_evaluation_id, entry_price,
+                       stake_usd, contract_count, status, entered_at, opened_at, resolved_at,
+                       resolution_price, realized_pnl_usd, evidence_json
+                FROM paper_positions
+                WHERE status = ?
+                ORDER BY resolved_at, position_id
+                """,
+                (PaperPositionStatus.RESOLVED.value,),
+            ).fetchall()
+
+        return [self._paper_position_from_row(row) for row in rows]
+
+    def persist_paper_trade_events(
+        self,
+        events: Iterable[PaperTradeEvent],
+    ) -> int:
+        self.bootstrap()
+        event_list = list(events)
+        with self.connect() as connection:
+            for event in event_list:
+                connection.execute(
+                    """
+                    INSERT INTO paper_trade_events (
+                        position_id, event_type, event_timestamp, details_json
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        event.position_id,
+                        event.event_type,
+                        event.event_timestamp,
+                        json.dumps(event.details, sort_keys=True),
+                    ),
+                )
+            connection.commit()
+        return len(event_list)
+
+    def list_paper_trade_events(
+        self,
+        position_id: str | None = None,
+    ) -> list[PaperTradeEvent]:
+        self.bootstrap()
+        query = """
+            SELECT position_id, event_type, event_timestamp, details_json
+            FROM paper_trade_events
+        """
+        params: tuple[object, ...] = ()
+        if position_id is not None:
+            query += " WHERE position_id = ?"
+            params = (position_id,)
+        query += " ORDER BY id"
+
+        with self.connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+
+        return [
+            PaperTradeEvent(
+                position_id=row["position_id"],
+                event_type=row["event_type"],
+                event_timestamp=row["event_timestamp"],
+                details=json.loads(row["details_json"]),
+            )
+            for row in rows
+        ]
+
+    def persist_bankroll_snapshots(
+        self,
+        snapshots: Iterable[BankrollSnapshot],
+    ) -> int:
+        self.bootstrap()
+        snapshot_list = list(snapshots)
+        with self.connect() as connection:
+            for snapshot in snapshot_list:
+                connection.execute(
+                    """
+                    INSERT INTO bankroll_snapshots (
+                        current_bankroll_usd, peak_bankroll_usd, available_cash_usd,
+                        open_exposure_usd, snapshot_reason, captured_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        snapshot.current_bankroll_usd,
+                        snapshot.peak_bankroll_usd,
+                        snapshot.available_cash_usd,
+                        snapshot.open_exposure_usd,
+                        snapshot.snapshot_reason,
+                        snapshot.captured_at,
+                    ),
+                )
+            connection.commit()
+        return len(snapshot_list)
+
+    def list_bankroll_snapshots(self) -> list[BankrollSnapshot]:
+        self.bootstrap()
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT current_bankroll_usd, peak_bankroll_usd, available_cash_usd,
+                       open_exposure_usd, snapshot_reason, captured_at
+                FROM bankroll_snapshots
+                ORDER BY id
+                """
+            ).fetchall()
+
+        return [
+            BankrollSnapshot(
+                current_bankroll_usd=float(row["current_bankroll_usd"]),
+                peak_bankroll_usd=float(row["peak_bankroll_usd"]),
+                available_cash_usd=float(row["available_cash_usd"]),
+                open_exposure_usd=float(row["open_exposure_usd"]),
+                snapshot_reason=row["snapshot_reason"],
+                captured_at=row["captured_at"],
             )
             for row in rows
         ]
@@ -595,6 +858,32 @@ class CandidateStorage:
                 decision.allowed_stake_usd,
                 json.dumps(decision.evidence, sort_keys=True),
             ),
+        )
+
+    def _paper_position_from_row(self, row: sqlite3.Row) -> PaperPositionRecord:
+        return PaperPositionRecord(
+            position_id=row["position_id"],
+            market_id=row["market_id"],
+            risk_decision_id=row["risk_decision_id"],
+            signal_evaluation_id=row["signal_evaluation_id"],
+            entry_price=float(row["entry_price"]),
+            stake_usd=float(row["stake_usd"]),
+            contract_count=float(row["contract_count"]),
+            status=PaperPositionStatus(row["status"]),
+            entered_at=row["entered_at"],
+            opened_at=row["opened_at"],
+            resolved_at=row["resolved_at"],
+            resolution_price=(
+                float(row["resolution_price"])
+                if row["resolution_price"] is not None
+                else None
+            ),
+            realized_pnl_usd=(
+                float(row["realized_pnl_usd"])
+                if row["realized_pnl_usd"] is not None
+                else None
+            ),
+            evidence=json.loads(row["evidence_json"]),
         )
 
 

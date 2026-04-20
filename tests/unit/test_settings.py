@@ -72,3 +72,17 @@ def test_scan_settings_loads_risk_fields_from_env() -> None:
     assert settings.global_max_open_exposure_pct == pytest.approx(0.25)
     assert settings.window_max_open_exposure_pct == pytest.approx(0.12)
     assert settings.minimum_trade_stake_usd == pytest.approx(2.5)
+
+
+def test_scan_settings_loads_paper_runtime_fields_from_env() -> None:
+    settings = load_settings(
+        {
+            "PAPER_STARTING_BANKROLL_USD": "150.5",
+            "PAPER_POLL_INTERVAL_SECONDS": "180",
+            "PAPER_RESOLUTION_POLL_SECONDS": "60",
+        }
+    )
+
+    assert settings.paper_starting_bankroll_usd == pytest.approx(150.5)
+    assert settings.paper_poll_interval_seconds == 180
+    assert settings.paper_resolution_poll_seconds == 60
